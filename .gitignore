@@ -24,3 +24,4 @@ target/
 
 HELP.md
 .DS_Store
+.env
