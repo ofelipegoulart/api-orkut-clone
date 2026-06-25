@@ -15,6 +15,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.ZoneOffset;
@@ -35,6 +36,7 @@ public class ScrapService {
     private final ScrapRepository scrapRepository;
     private final UserRepository userRepository;
 
+    @Transactional
     public ScrapResponse create(CreateScrapRequest request) {
         User author = authenticatedUser();
         User owner = userRepository.findById(request.ownerId())
@@ -62,6 +64,7 @@ public class ScrapService {
         return toResponse(scrapRepository.save(scrap));
     }
 
+    @Transactional(readOnly = true)
     public ScrapResponse findById(UUID scrapId) {
         User current = authenticatedUser();
         Scrap scrap = findScrapOrThrow(scrapId);
@@ -75,6 +78,7 @@ public class ScrapService {
         return toResponse(scrap);
     }
 
+    @Transactional
     public ScrapResponse update(UUID scrapId, UpdateScrapRequest request) {
         User current = authenticatedUser();
         Scrap scrap = findScrapOrThrow(scrapId);
@@ -87,6 +91,7 @@ public class ScrapService {
         return toResponse(scrapRepository.save(scrap));
     }
 
+    @Transactional
     public void delete(UUID scrapId) {
         User current = authenticatedUser();
         Scrap scrap = findScrapOrThrow(scrapId);
@@ -101,6 +106,7 @@ public class ScrapService {
         scrapRepository.delete(scrap);
     }
 
+    @Transactional(readOnly = true)
     public Page<ScrapResponse> findByOwner(UUID ownerId, int page, int size) {
         validatePageSize(size);
         if (!userRepository.existsById(ownerId)) {
@@ -111,6 +117,7 @@ public class ScrapService {
                 .map(this::toResponse);
     }
 
+    @Transactional(readOnly = true)
     public Page<ScrapResponse> findSent(int page, int size) {
         validatePageSize(size);
         UUID authorId = authenticatedUser().getId();
@@ -118,6 +125,7 @@ public class ScrapService {
                 .map(this::toResponse);
     }
 
+    @Transactional
     public void deleteMultiple(List<UUID> scrapIds) {
         if (scrapIds == null || scrapIds.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No scrap IDs provided");
@@ -137,6 +145,7 @@ public class ScrapService {
         }
     }
 
+    @Transactional(readOnly = true)
     public List<ScrapResponse> findThread(UUID scrapId) {
         Scrap scrap = findScrapOrThrow(scrapId);
         User current = authenticatedUser();
@@ -170,7 +179,7 @@ public class ScrapService {
         }
     }
 
-    @org.springframework.transaction.annotation.Transactional
+    @Transactional
     public int markAsRead(List<UUID> scrapIds) {
         if (scrapIds == null || scrapIds.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No scrap IDs provided");
