@@ -12,6 +12,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -21,6 +22,12 @@ public class UserService {
 
     public UserResponse getCurrentUser() {
         return toResponse(authenticatedUser());
+    }
+
+    public UserResponse getUserById(UUID userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        return toResponse(user);
     }
 
     private static final int MAX_BIO_LENGTH = 1024;
