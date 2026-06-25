@@ -6,10 +6,13 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "scraps")
+@Table(name = "scraps", indexes = {
+        @Index(name = "idx_scrap_owner_read", columnList = "owner_id, read_at")
+})
 @Getter
 @Setter
 @NoArgsConstructor
@@ -32,9 +35,16 @@ public class Scrap {
     @JoinColumn(name = "owner_id", nullable = false)
     private User owner;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_id")
+    private Scrap parent;
+
     @Builder.Default
     @Column(name = "is_private", nullable = false)
     private boolean isPrivate = false;
+
+    @Column(name = "read_at")
+    private OffsetDateTime readAt;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

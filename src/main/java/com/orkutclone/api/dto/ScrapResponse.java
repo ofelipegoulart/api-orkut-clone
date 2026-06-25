@@ -1,6 +1,6 @@
 package com.orkutclone.api.dto;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 public record ScrapResponse(
@@ -9,8 +9,11 @@ public record ScrapResponse(
         boolean isPrivate,
         UUID authorId,
         String authorName,
+        String authorAvatar,
         UUID ownerId,
         String ownerName,
-        LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        UUID parentId,
+        OffsetDateTime readAt,
+        OffsetDateTime createdAt,
+        OffsetDateTime updatedAt
 ) {}
