@@ -5,6 +5,7 @@ import com.orkutclone.api.dto.LoginRequest;
 import com.orkutclone.api.dto.RegisterRequest;
 import com.orkutclone.api.model.User;
 import com.orkutclone.api.model.enums.Role;
+import com.orkutclone.api.exception.ConflictException;
 import com.orkutclone.api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -23,7 +24,7 @@ public class AuthService {
 
     public AuthResponse register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.email())) {
-            throw new IllegalArgumentException("Email already in use");
+            throw new ConflictException("Email already in use");
         }
 
         User user = User.builder()
