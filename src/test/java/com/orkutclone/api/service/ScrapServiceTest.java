@@ -49,6 +49,9 @@ class ScrapServiceTest {
     @InjectMocks
     private ScrapService scrapService;
 
+    @Mock
+    private ProfileStatisticsService profileStatisticsService;
+
     private User felipe;
     private User maria;
     private User joao;

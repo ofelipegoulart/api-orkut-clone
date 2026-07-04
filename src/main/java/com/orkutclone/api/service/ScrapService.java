@@ -10,6 +10,7 @@ import com.orkutclone.api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.jsoup.Jsoup;
 import org.jsoup.safety.Safelist;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
@@ -35,8 +36,10 @@ public class ScrapService {
 
     private final ScrapRepository scrapRepository;
     private final UserRepository userRepository;
+    private final ProfileStatisticsService profileStatisticsService;
 
     @Transactional
+    @CacheEvict(cacheNames = "profileOverview", allEntries = true)
     public ScrapResponse create(CreateScrapRequest request) {
         User author = authenticatedUser();
         User owner = userRepository.findById(request.ownerId())
@@ -61,7 +64,9 @@ public class ScrapService {
                 .isPrivate(Boolean.TRUE.equals(request.isPrivate()))
                 .build();
 
-        return toResponse(scrapRepository.save(scrap));
+        ScrapResponse response = toResponse(scrapRepository.save(scrap));
+        profileStatisticsService.refreshSnapshot(owner.getId());
+        return response;
     }
 
     @Transactional(readOnly = true)
@@ -92,6 +97,7 @@ public class ScrapService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = "profileOverview", allEntries = true)
     public void delete(UUID scrapId) {
         User current = authenticatedUser();
         Scrap scrap = findScrapOrThrow(scrapId);
@@ -103,7 +109,9 @@ public class ScrapService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the author or wall owner can delete this scrap");
         }
 
+        UUID ownerId = scrap.getOwner().getId();
         scrapRepository.delete(scrap);
+        profileStatisticsService.refreshSnapshot(ownerId);
     }
 
     @Transactional(readOnly = true)
@@ -126,11 +134,13 @@ public class ScrapService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = "profileOverview", allEntries = true)
     public void deleteMultiple(List<UUID> scrapIds) {
         if (scrapIds == null || scrapIds.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No scrap IDs provided");
         }
         User current = authenticatedUser();
+        java.util.Set<UUID> ownerIds = new java.util.HashSet<>();
         for (UUID scrapId : scrapIds) {
             Scrap scrap = findScrapOrThrow(scrapId);
             boolean isAuthor = scrap.getAuthor().getId().equals(current.getId());
@@ -139,10 +149,12 @@ public class ScrapService {
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                         "Only the author or wall owner can delete scrap " + scrapId);
             }
+            ownerIds.add(scrap.getOwner().getId());
         }
         for (UUID scrapId : scrapIds) {
             scrapRepository.deleteById(scrapId);
         }
+        ownerIds.forEach(profileStatisticsService::refreshSnapshot);
     }
 
     @Transactional(readOnly = true)
