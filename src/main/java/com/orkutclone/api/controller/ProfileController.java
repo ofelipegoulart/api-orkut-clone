@@ -2,6 +2,11 @@ package com.orkutclone.api.controller;
 
 import com.orkutclone.api.dto.profile.*;
 import com.orkutclone.api.service.ProfileService;
+import com.orkutclone.api.service.ProfileOverviewService;
+import com.orkutclone.api.service.ProfileFriendService;
+import com.orkutclone.api.service.ProfileCommunityService;
+import com.orkutclone.api.service.ProfileRatingService;
+import com.orkutclone.api.service.ProfileTestimonialService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.validation.Valid;
@@ -9,12 +14,131 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.UUID;
+
 @RestController
 @RequestMapping("/api/profile")
 @RequiredArgsConstructor
 public class ProfileController {
 
     private final ProfileService profileService;
+    private final ProfileOverviewService profileOverviewService;
+    private final ProfileFriendService profileFriendService;
+    private final ProfileCommunityService profileCommunityService;
+    private final ProfileRatingService profileRatingService;
+    private final ProfileTestimonialService profileTestimonialService;
+
+    @GetMapping("/overview")
+    @Operation(summary = "Get complete profile overview")
+    @ApiResponse(responseCode = "200", description = "Profile overview retrieved")
+    @ApiResponse(responseCode = "401", description = "Not authenticated")
+    @ApiResponse(responseCode = "404", description = "User not found")
+    public ResponseEntity<ProfileOverviewDTO> getOverview(@RequestParam(required = false) UUID userId) {
+        return ResponseEntity.ok(profileOverviewService.getOverview(userId));
+    }
+
+    @PostMapping("/friends/{friendUserId}")
+    @Operation(summary = "Add a friend")
+    @ApiResponse(responseCode = "204", description = "Friend added")
+    @ApiResponse(responseCode = "401", description = "Not authenticated")
+    public ResponseEntity<Void> addFriend(@PathVariable UUID friendUserId) {
+        profileFriendService.addFriend(friendUserId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/friends/{friendUserId}")
+    @Operation(summary = "Remove a friend")
+    @ApiResponse(responseCode = "204", description = "Friend removed")
+    @ApiResponse(responseCode = "401", description = "Not authenticated")
+    public ResponseEntity<Void> removeFriend(@PathVariable UUID friendUserId) {
+        profileFriendService.removeFriend(friendUserId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/communities")
+    @Operation(summary = "Create a community")
+    @ApiResponse(responseCode = "201", description = "Community created")
+    @ApiResponse(responseCode = "401", description = "Not authenticated")
+    public ResponseEntity<ProfileOverviewDTO.CommunityCardDTO> createCommunity(@RequestBody @Valid CreateCommunityRequest request) {
+        return ResponseEntity.status(201).body(profileCommunityService.create(request));
+    }
+
+    @PostMapping("/communities/{communityId}/join")
+    @Operation(summary = "Join a community")
+    @ApiResponse(responseCode = "204", description = "Joined community")
+    @ApiResponse(responseCode = "401", description = "Not authenticated")
+    public ResponseEntity<Void> joinCommunity(@PathVariable UUID communityId) {
+        profileCommunityService.join(communityId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/communities/{communityId}/leave")
+    @Operation(summary = "Leave a community")
+    @ApiResponse(responseCode = "204", description = "Left community")
+    @ApiResponse(responseCode = "401", description = "Not authenticated")
+    public ResponseEntity<Void> leaveCommunity(@PathVariable UUID communityId) {
+        profileCommunityService.leave(communityId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/ratings/{targetUserId}")
+    @Operation(summary = "Rate a profile")
+    @ApiResponse(responseCode = "204", description = "Profile rated")
+    @ApiResponse(responseCode = "401", description = "Not authenticated")
+    public ResponseEntity<Void> rateProfile(@PathVariable UUID targetUserId, @RequestBody @Valid CreateProfileRatingRequest request) {
+        profileRatingService.rate(targetUserId, request);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/testimonials/{targetUserId}")
+    @Operation(summary = "Send a testimonial")
+    @ApiResponse(responseCode = "201", description = "Testimonial sent")
+    @ApiResponse(responseCode = "401", description = "Not authenticated")
+    public ResponseEntity<ProfileOverviewDTO.TestimonialDTO> sendTestimonial(
+            @PathVariable UUID targetUserId,
+            @RequestBody @Valid CreateTestimonialRequest request) {
+        var testimonial = profileTestimonialService.send(targetUserId, request);
+        return ResponseEntity.status(201).body(new ProfileOverviewDTO.TestimonialDTO(
+                testimonial.getId(),
+                testimonial.getAuthor().getId(),
+                testimonial.getAuthor().getName(),
+                testimonial.getAuthor().getProfilePicture(),
+                testimonial.getMessage(),
+                testimonial.getStatus().name(),
+                testimonial.getCreatedAt() == null ? null : testimonial.getCreatedAt().atOffset(java.time.ZoneOffset.UTC)
+        ));
+    }
+
+    @PatchMapping("/testimonials/{testimonialId}/decision")
+    @Operation(summary = "Approve or reject a testimonial")
+    @ApiResponse(responseCode = "204", description = "Testimonial processed")
+    @ApiResponse(responseCode = "401", description = "Not authenticated")
+    public ResponseEntity<Void> decideTestimonial(@PathVariable UUID testimonialId, @RequestBody RespondTestimonialRequest request) {
+        if (request.approved()) {
+            profileTestimonialService.approve(testimonialId);
+        } else {
+            profileTestimonialService.reject(testimonialId);
+        }
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/testimonials/sent")
+    @Operation(summary = "List sent testimonials")
+    @ApiResponse(responseCode = "200", description = "Testimonials retrieved")
+    @ApiResponse(responseCode = "401", description = "Not authenticated")
+    public ResponseEntity<java.util.List<ProfileOverviewDTO.TestimonialDTO>> listSentTestimonials(@RequestParam UUID userId) {
+        return ResponseEntity.ok(profileTestimonialService.findSent(userId));
+    }
+
+    @GetMapping("/testimonials/received")
+    @Operation(summary = "List received testimonials")
+    @ApiResponse(responseCode = "200", description = "Testimonials retrieved")
+    @ApiResponse(responseCode = "401", description = "Not authenticated")
+    public ResponseEntity<java.util.List<ProfileOverviewDTO.TestimonialDTO>> listReceivedTestimonials(
+            @RequestParam UUID userId,
+            @RequestParam(defaultValue = "false") boolean includePending) {
+        return ResponseEntity.ok(profileTestimonialService.findReceived(userId, includePending));
+    }
 
     @GetMapping("/general")
     @Operation(summary = "Get general profile")
