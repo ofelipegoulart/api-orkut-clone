@@ -18,6 +18,8 @@ public interface ScrapRepository extends JpaRepository<Scrap, UUID> {
 
     Page<Scrap> findByAuthorIdOrderByCreatedAtDesc(UUID authorId, Pageable pageable);
 
+    long countByOwnerId(UUID ownerId);
+
     List<Scrap> findByParentIdOrderByCreatedAtAsc(UUID parentId);
 
     @Modifying
