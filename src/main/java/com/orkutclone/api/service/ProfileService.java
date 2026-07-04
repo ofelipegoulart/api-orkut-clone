@@ -5,6 +5,7 @@ import com.orkutclone.api.model.*;
 import com.orkutclone.api.repository.*;
 import com.orkutclone.api.validation.AllowedProfileValues;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -44,6 +45,7 @@ public class ProfileService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = "profileOverview", allEntries = true)
     public GeneralProfileDTO updateGeneral(GeneralProfileDTO dto) {
         UserProfileGeneral g = getOrCreateGeneral();
 
@@ -92,6 +94,7 @@ public class ProfileService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = "profileOverview", allEntries = true)
     public SocialProfileDTO updateSocial(SocialProfileDTO dto) {
         UserProfileSocial s = getOrCreateSocial();
 
@@ -142,6 +145,7 @@ public class ProfileService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = "profileOverview", allEntries = true)
     public ContactProfileDTO updateContact(ContactProfileDTO dto) {
         UserProfileContact c = getOrCreateContact();
 
@@ -179,6 +183,7 @@ public class ProfileService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = "profileOverview", allEntries = true)
     public ProfessionalProfileDTO updateProfessional(ProfessionalProfileDTO dto) {
         UserProfileProfessional p = getOrCreateProfessional();
 
@@ -209,6 +214,7 @@ public class ProfileService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = "profileOverview", allEntries = true)
     public PersonalProfileDTO updatePersonal(PersonalProfileDTO dto) {
         UserProfilePersonal p = getOrCreatePersonal();
 
@@ -242,6 +248,7 @@ public class ProfileService {
     // ── Avatar ──
 
     @Transactional
+    @CacheEvict(cacheNames = "profileOverview", allEntries = true)
     public AvatarResponse uploadAvatar(AvatarRequest request) {
         Matcher matcher = DATA_URI_PATTERN.matcher(request.avatar());
         if (!matcher.matches()) {
@@ -284,6 +291,7 @@ public class ProfileService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = "profileOverview", allEntries = true)
     public void deleteAvatar() {
         User user = userRepository.findById(authenticatedUser().getId()).orElseThrow();
         user.setProfilePicture(null);
