@@ -11,10 +11,12 @@ import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.util.Base64;
+import java.util.UUID;
 
 import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 
 class ProfileIntegrationTest extends BaseIntegrationTest {
 
@@ -159,6 +161,37 @@ class ProfileIntegrationTest extends BaseIntegrationTest {
     }
 
     @Nested
+    @DisplayName("GET /api/profile/overview — Perfil completo")
+    class ProfileOverview {
+
+        @Test
+        @DisplayName("Deve carregar o overview do usuário autenticado em uma única resposta")
+        void shouldLoadAuthenticatedUserOverview() throws Exception {
+            mockMvc.perform(get("/api/profile/overview")
+                            .header("Authorization", authHeader(user)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.user.id").value(user.userId().toString()))
+                    .andExpect(jsonPath("$.user.name").value("User 1"))
+                    .andExpect(jsonPath("$.shortcuts.scrapsCount").value(0))
+                    .andExpect(jsonPath("$.friends", hasSize(0)))
+                    .andExpect(jsonPath("$.communities", hasSize(0)))
+                    .andExpect(jsonPath("$.testimonialsReceived", hasSize(0)));
+        }
+
+        @Test
+        @DisplayName("Deve carregar o overview de outro usuário pelo userId")
+        void shouldLoadOtherUserOverview() throws Exception {
+            AuthResponse other = registerUniqueUser();
+
+            mockMvc.perform(get("/api/profile/overview")
+                            .header("Authorization", authHeader(user))
+                            .param("userId", other.userId().toString()))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.user.id").value(other.userId().toString()));
+        }
+    }
+
+    @Nested
     @DisplayName("GET/PATCH /api/profile/social — Perfil social")
     class SocialProfile {
 
@@ -185,6 +218,7 @@ class ProfileIntegrationTest extends BaseIntegrationTest {
                                         "aboutMe": "Amo programação!"
                                     }
                                     """))
+                                    .andDo(print())
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.smoking").value("não"))
                     .andExpect(jsonPath("$.drinking").value("socialmente"))
@@ -216,13 +250,15 @@ class ProfileIntegrationTest extends BaseIntegrationTest {
                             .header("Authorization", authHeader(user))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("""
-                                    {
-                                        "eyeColor": "castanhos",
-                                        "hairColor": "preto",
-                                        "bodyType": "atlético(a)inteligência", "sarcasmo"]",
-                                        "attractions": ["
-                                    }
-                                    """))
+                                {
+                                "eyeColor": "castanhos",
+                                "hairColor": "preto",
+                                "bodyType": "atlético(a)",
+                                "intelligence": "alta",
+                                "sarcasm": "sim",
+                                "attractions": ["inteligência", "sarcasmo"]
+                                }
+                                """))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.eyeColor").value("castanhos"))
                     .andExpect(jsonPath("$.attractions", hasSize(2)));
