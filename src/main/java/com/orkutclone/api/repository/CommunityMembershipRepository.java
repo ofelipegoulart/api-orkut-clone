@@ -15,6 +15,9 @@ public interface CommunityMembershipRepository extends JpaRepository<CommunityMe
     @Query("SELECT COUNT(m) FROM CommunityMembership m WHERE m.user.id = :userId")
     long countByUserId(@Param("userId") UUID userId);
 
+    @Query("SELECT COUNT(m) FROM CommunityMembership m WHERE m.community.id = :communityId")
+    long countByCommunityId(@Param("communityId") UUID communityId);
+
     boolean existsByUserIdAndCommunityId(UUID userId, UUID communityId);
 
     void deleteByUserIdAndCommunityId(UUID userId, UUID communityId);
