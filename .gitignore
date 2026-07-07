@@ -25,3 +25,6 @@ target/
 HELP.md
 .DS_Store
 .env
+
+# Uploaded avatars (local storage)
+uploads/

@@ -15,6 +15,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.server.ResponseStatusException;
@@ -27,6 +28,8 @@ import java.util.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -39,6 +42,7 @@ class ProfileServiceTest {
     @Mock private UserProfileContactRepository contactRepository;
     @Mock private UserProfileProfessionalRepository professionalRepository;
     @Mock private UserProfilePersonalRepository personalRepository;
+    @Mock private com.orkutclone.api.support.AvatarStorageService avatarStorage;
 
     @InjectMocks
     private ProfileService profileService;
@@ -853,89 +857,87 @@ class ProfileServiceTest {
     @DisplayName("Avatar - Minha foto de perfil")
     class AvatarUpload {
 
-        private String createValidBase64Image() throws Exception {
-            BufferedImage image = new BufferedImage(64, 64, BufferedImage.TYPE_INT_RGB);
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            ImageIO.write(image, "png", baos);
-            return "data:image/png;base64," + Base64.getEncoder().encodeToString(baos.toByteArray());
-        }
-
-        private String createImageOfSize(int width, int height) throws Exception {
+        private byte[] imageBytes(int width, int height, String format) throws Exception {
             BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            ImageIO.write(image, "png", baos);
-            return "data:image/png;base64," + Base64.getEncoder().encodeToString(baos.toByteArray());
+            ImageIO.write(image, format, baos);
+            return baos.toByteArray();
+        }
+
+        private MockMultipartFile pngFile(int width, int height) throws Exception {
+            return new MockMultipartFile("file", "avatar.png", "image/png", imageBytes(width, height, "png"));
         }
 
         @Test
         @DisplayName("Deve fazer upload de avatar PNG válido")
         void shouldUploadValidPngAvatar() throws Exception {
-            String validImage = createValidBase64Image();
-            AvatarRequest request = new AvatarRequest(validImage);
+            MockMultipartFile file = pngFile(64, 64);
+            String storedUrl = "/uploads/avatars/stored.png";
+            when(avatarStorage.store(any(byte[].class), eq("png"))).thenReturn(storedUrl);
             when(userRepository.findById(currentUser.getId())).thenReturn(Optional.of(currentUser));
             when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
-            AvatarResponse response = profileService.uploadAvatar(request);
+            AvatarResponse response = profileService.uploadAvatar(file);
 
-            assertThat(response.avatar()).isEqualTo(validImage);
+            assertThat(response.avatar()).isEqualTo(storedUrl);
             verify(userRepository).save(currentUser);
-            assertThat(currentUser.getProfilePicture()).isEqualTo(validImage);
+            assertThat(currentUser.getProfilePicture()).isEqualTo(storedUrl);
         }
 
         @Test
         @DisplayName("Deve fazer upload de avatar JPEG válido")
         void shouldUploadValidJpegAvatar() throws Exception {
-            BufferedImage image = new BufferedImage(64, 64, BufferedImage.TYPE_INT_RGB);
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            ImageIO.write(image, "jpg", baos);
-            String jpegImage = "data:image/jpeg;base64," + Base64.getEncoder().encodeToString(baos.toByteArray());
-
-            AvatarRequest request = new AvatarRequest(jpegImage);
+            MockMultipartFile file = new MockMultipartFile(
+                    "file", "avatar.jpg", "image/jpeg", imageBytes(64, 64, "jpg"));
+            String storedUrl = "/uploads/avatars/stored.jpg";
+            when(avatarStorage.store(any(byte[].class), eq("jpg"))).thenReturn(storedUrl);
             when(userRepository.findById(currentUser.getId())).thenReturn(Optional.of(currentUser));
             when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
-            AvatarResponse response = profileService.uploadAvatar(request);
+            AvatarResponse response = profileService.uploadAvatar(file);
 
-            assertThat(response.avatar()).isEqualTo(jpegImage);
+            assertThat(response.avatar()).isEqualTo(storedUrl);
         }
 
         @Test
-        @DisplayName("Deve rejeitar formato de imagem inválido (text/plain)")
+        @DisplayName("Deve rejeitar arquivo que não é imagem (text/plain)")
         void shouldRejectInvalidImageFormat() {
-            AvatarRequest request = new AvatarRequest("data:text/plain;base64,abc123");
+            MockMultipartFile file = new MockMultipartFile(
+                    "file", "notes.txt", "text/plain", "abc123".getBytes());
 
-            assertThatThrownBy(() -> profileService.uploadAvatar(request))
+            assertThatThrownBy(() -> profileService.uploadAvatar(file))
                     .isInstanceOf(ResponseStatusException.class)
                     .hasMessageContaining("Invalid image format");
         }
 
         @Test
-        @DisplayName("Deve rejeitar string que não é data URI")
-        void shouldRejectNonDataUri() {
-            AvatarRequest request = new AvatarRequest("https://example.com/photo.jpg");
+        @DisplayName("Deve rejeitar arquivo vazio")
+        void shouldRejectEmptyFile() {
+            MockMultipartFile file = new MockMultipartFile(
+                    "file", "empty.png", "image/png", new byte[0]);
 
-            assertThatThrownBy(() -> profileService.uploadAvatar(request))
+            assertThatThrownBy(() -> profileService.uploadAvatar(file))
                     .isInstanceOf(ResponseStatusException.class)
-                    .hasMessageContaining("Invalid image format");
+                    .hasMessageContaining("No image file provided");
         }
 
         @Test
-        @DisplayName("Deve rejeitar base64 inválido")
-        void shouldRejectInvalidBase64() {
-            AvatarRequest request = new AvatarRequest("data:image/png;base64,!!!invalid!!!");
+        @DisplayName("Deve rejeitar dados corrompidos que se dizem PNG (MIME spoof)")
+        void shouldRejectCorruptImage() {
+            MockMultipartFile file = new MockMultipartFile(
+                    "file", "avatar.png", "image/png", "isto nao eh uma imagem".getBytes());
 
-            assertThatThrownBy(() -> profileService.uploadAvatar(request))
+            assertThatThrownBy(() -> profileService.uploadAvatar(file))
                     .isInstanceOf(ResponseStatusException.class)
-                    .hasMessageContaining("Invalid base64 data");
+                    .hasMessageContaining("Invalid image format");
         }
 
         @Test
         @DisplayName("Deve rejeitar imagem menor que 32x32")
         void shouldRejectImageSmallerThanMinimum() throws Exception {
-            String tinyImage = createImageOfSize(16, 16);
-            AvatarRequest request = new AvatarRequest(tinyImage);
+            MockMultipartFile file = pngFile(16, 16);
 
-            assertThatThrownBy(() -> profileService.uploadAvatar(request))
+            assertThatThrownBy(() -> profileService.uploadAvatar(file))
                     .isInstanceOf(ResponseStatusException.class)
                     .hasMessageContaining("at least 32x32");
         }
@@ -943,12 +945,12 @@ class ProfileServiceTest {
         @Test
         @DisplayName("Deve aceitar imagem exatamente 32x32 (mínimo)")
         void shouldAcceptMinimumSizeImage() throws Exception {
-            String minImage = createImageOfSize(32, 32);
-            AvatarRequest request = new AvatarRequest(minImage);
+            MockMultipartFile file = pngFile(32, 32);
+            when(avatarStorage.store(any(byte[].class), anyString())).thenReturn("/uploads/avatars/min.png");
             when(userRepository.findById(currentUser.getId())).thenReturn(Optional.of(currentUser));
             when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
-            AvatarResponse response = profileService.uploadAvatar(request);
+            AvatarResponse response = profileService.uploadAvatar(file);
 
             assertThat(response.avatar()).isNotNull();
         }
@@ -956,30 +958,20 @@ class ProfileServiceTest {
         @Test
         @DisplayName("Deve rejeitar imagem com largura OK mas altura menor")
         void shouldRejectImageWithInsufficientHeight() throws Exception {
-            String badImage = createImageOfSize(64, 20);
-            AvatarRequest request = new AvatarRequest(badImage);
+            MockMultipartFile file = pngFile(64, 20);
 
-            assertThatThrownBy(() -> profileService.uploadAvatar(request))
+            assertThatThrownBy(() -> profileService.uploadAvatar(file))
                     .isInstanceOf(ResponseStatusException.class)
                     .hasMessageContaining("at least 32x32");
         }
 
         @Test
-        @DisplayName("Deve rejeitar formato webp não suportado")
-        void shouldRejectUnsupportedFormat() {
-            AvatarRequest request = new AvatarRequest("data:image/webp;base64,UklGRiIAAABXRUJQ");
+        @DisplayName("Deve rejeitar formato não permitido (TIFF)")
+        void shouldRejectUnsupportedFormat() throws Exception {
+            MockMultipartFile file = new MockMultipartFile(
+                    "file", "avatar.tiff", "image/tiff", imageBytes(64, 64, "tiff"));
 
-            assertThatThrownBy(() -> profileService.uploadAvatar(request))
-                    .isInstanceOf(ResponseStatusException.class)
-                    .hasMessageContaining("Invalid image format");
-        }
-
-        @Test
-        @DisplayName("Deve rejeitar string vazia como data URI")
-        void shouldRejectEmptyString() {
-            AvatarRequest request = new AvatarRequest("");
-
-            assertThatThrownBy(() -> profileService.uploadAvatar(request))
+            assertThatThrownBy(() -> profileService.uploadAvatar(file))
                     .isInstanceOf(ResponseStatusException.class)
                     .hasMessageContaining("Invalid image format");
         }
@@ -987,7 +979,7 @@ class ProfileServiceTest {
         @Test
         @DisplayName("Deve deletar avatar existente")
         void shouldDeleteExistingAvatar() {
-            currentUser.setProfilePicture("data:image/png;base64,existingimage");
+            currentUser.setProfilePicture("/uploads/avatars/existing.png");
             when(userRepository.findById(currentUser.getId())).thenReturn(Optional.of(currentUser));
             when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -995,6 +987,7 @@ class ProfileServiceTest {
 
             assertThat(currentUser.getProfilePicture()).isNull();
             verify(userRepository).save(currentUser);
+            verify(avatarStorage).delete("/uploads/avatars/existing.png");
         }
 
         @Test
@@ -1015,31 +1008,33 @@ class ProfileServiceTest {
     @DisplayName("Concorrência e Idempotência - Avatar")
     class AvatarConcurrencyAndIdempotency {
 
-        private String createValidBase64Image() throws Exception {
-            BufferedImage image = new BufferedImage(64, 64, BufferedImage.TYPE_INT_RGB);
+        private MockMultipartFile pngFile(int width, int height) throws Exception {
+            BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             ImageIO.write(image, "png", baos);
-            return "data:image/png;base64," + Base64.getEncoder().encodeToString(baos.toByteArray());
+            return new MockMultipartFile("file", "avatar.png", "image/png", baos.toByteArray());
         }
 
         @Test
         @DisplayName("Upload do mesmo avatar duas vezes — ambos devem funcionar")
         void shouldAllowDuplicateAvatarUpload() throws Exception {
-            String validImage = createValidBase64Image();
+            when(avatarStorage.store(any(byte[].class), anyString()))
+                    .thenAnswer(inv -> "/uploads/avatars/" + UUID.randomUUID() + ".png");
             when(userRepository.findById(currentUser.getId())).thenReturn(Optional.of(currentUser));
             when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
-            AvatarResponse first = profileService.uploadAvatar(new AvatarRequest(validImage));
-            AvatarResponse second = profileService.uploadAvatar(new AvatarRequest(validImage));
+            AvatarResponse first = profileService.uploadAvatar(pngFile(64, 64));
+            AvatarResponse second = profileService.uploadAvatar(pngFile(64, 64));
 
-            assertThat(first.avatar()).isEqualTo(second.avatar());
-            assertThat(currentUser.getProfilePicture()).isEqualTo(validImage);
+            assertThat(first.avatar()).isNotNull();
+            assertThat(second.avatar()).isNotNull();
+            assertThat(currentUser.getProfilePicture()).isEqualTo(second.avatar());
         }
 
         @Test
         @DisplayName("Delete avatar duas vezes — segunda vez não causa erro")
         void shouldHandleDoubleDeleteGracefully() {
-            currentUser.setProfilePicture("data:image/png;base64,foto");
+            currentUser.setProfilePicture("/uploads/avatars/foto.png");
             when(userRepository.findById(currentUser.getId())).thenReturn(Optional.of(currentUser));
             when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -1053,39 +1048,37 @@ class ProfileServiceTest {
         @Test
         @DisplayName("Upload → delete → upload — ciclo completo funciona")
         void shouldHandleUploadDeleteUploadCycle() throws Exception {
-            String image1 = createValidBase64Image();
+            when(avatarStorage.store(any(byte[].class), anyString()))
+                    .thenAnswer(inv -> "/uploads/avatars/" + UUID.randomUUID() + ".png");
             when(userRepository.findById(currentUser.getId())).thenReturn(Optional.of(currentUser));
             when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
-            profileService.uploadAvatar(new AvatarRequest(image1));
-            assertThat(currentUser.getProfilePicture()).isEqualTo(image1);
+            profileService.uploadAvatar(pngFile(64, 64));
+            assertThat(currentUser.getProfilePicture()).isNotNull();
 
             profileService.deleteAvatar();
             assertThat(currentUser.getProfilePicture()).isNull();
 
-            profileService.uploadAvatar(new AvatarRequest(image1));
-            assertThat(currentUser.getProfilePicture()).isEqualTo(image1);
+            profileService.uploadAvatar(pngFile(64, 64));
+            assertThat(currentUser.getProfilePicture()).isNotNull();
         }
 
         @Test
         @DisplayName("Trocar de avatar sobrescreve o anterior — só existe uma foto principal")
         void shouldOverwritePreviousAvatar() throws Exception {
-            String image1 = createValidBase64Image();
+            when(avatarStorage.store(any(byte[].class), anyString()))
+                    .thenAnswer(inv -> "/uploads/avatars/" + UUID.randomUUID() + ".png");
             when(userRepository.findById(currentUser.getId())).thenReturn(Optional.of(currentUser));
             when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
-            profileService.uploadAvatar(new AvatarRequest(image1));
+            profileService.uploadAvatar(pngFile(64, 64));
             String firstPicture = currentUser.getProfilePicture();
 
-            BufferedImage img2 = new BufferedImage(128, 128, BufferedImage.TYPE_INT_RGB);
-            ByteArrayOutputStream baos2 = new ByteArrayOutputStream();
-            ImageIO.write(img2, "png", baos2);
-            String image2 = "data:image/png;base64," + Base64.getEncoder().encodeToString(baos2.toByteArray());
+            profileService.uploadAvatar(pngFile(128, 128));
 
-            profileService.uploadAvatar(new AvatarRequest(image2));
-
-            assertThat(currentUser.getProfilePicture()).isEqualTo(image2);
+            assertThat(currentUser.getProfilePicture()).isNotNull();
             assertThat(currentUser.getProfilePicture()).isNotEqualTo(firstPicture);
+            verify(avatarStorage).delete(firstPicture);
         }
     }
 
@@ -1160,44 +1153,43 @@ class ProfileServiceTest {
     class AvatarAttacks {
 
         @Test
-        @DisplayName("Base64 bomb — data URI válida mas dados enormes (>10MB) deve ser rejeitada")
-        void shouldRejectBase64Bomb() {
+        @DisplayName("Arquivo enorme (>10MB) deve ser rejeitado")
+        void shouldRejectOversizedFile() {
             byte[] bomb = new byte[11 * 1024 * 1024];
-            String bigBase64 = "data:image/png;base64," + Base64.getEncoder().encodeToString(bomb);
-            AvatarRequest request = new AvatarRequest(bigBase64);
+            MockMultipartFile file = new MockMultipartFile("file", "avatar.png", "image/png", bomb);
 
-            assertThatThrownBy(() -> profileService.uploadAvatar(request))
+            assertThatThrownBy(() -> profileService.uploadAvatar(file))
                     .isInstanceOf(ResponseStatusException.class)
                     .hasMessageContaining("10MB");
         }
 
         @Test
-        @DisplayName("Data URI com MIME type spoofado (diz PNG mas dados são lixo)")
+        @DisplayName("MIME type spoofado (diz PNG mas dados são lixo)")
         void shouldRejectSpoofedMimeType() {
-            String spoofed = "data:image/png;base64," + Base64.getEncoder().encodeToString("isto nao eh uma imagem".getBytes());
-            AvatarRequest request = new AvatarRequest(spoofed);
+            MockMultipartFile file = new MockMultipartFile(
+                    "file", "avatar.png", "image/png", "isto nao eh uma imagem".getBytes());
 
-            assertThatThrownBy(() -> profileService.uploadAvatar(request))
+            assertThatThrownBy(() -> profileService.uploadAvatar(file))
                     .isInstanceOf(ResponseStatusException.class);
         }
 
         @Test
-        @DisplayName("Data URI com null bytes dentro do base64")
-        void shouldHandleNullBytesInBase64() {
+        @DisplayName("Arquivo só com null bytes deve ser rejeitado")
+        void shouldHandleNullBytes() {
             byte[] withNulls = new byte[]{0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-            String nullBase64 = "data:image/png;base64," + Base64.getEncoder().encodeToString(withNulls);
-            AvatarRequest request = new AvatarRequest(nullBase64);
+            MockMultipartFile file = new MockMultipartFile("file", "avatar.png", "image/png", withNulls);
 
-            assertThatThrownBy(() -> profileService.uploadAvatar(request))
+            assertThatThrownBy(() -> profileService.uploadAvatar(file))
                     .isInstanceOf(ResponseStatusException.class);
         }
 
         @Test
-        @DisplayName("Data URI com padding base64 malformado")
-        void shouldRejectMalformedBase64Padding() {
-            AvatarRequest request = new AvatarRequest("data:image/png;base64,YWJj===");
+        @DisplayName("PNG truncado (header válido mas corrompido) deve ser rejeitado")
+        void shouldRejectTruncatedImage() {
+            byte[] pngHeader = new byte[]{(byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x01};
+            MockMultipartFile file = new MockMultipartFile("file", "avatar.png", "image/png", pngHeader);
 
-            assertThatThrownBy(() -> profileService.uploadAvatar(request))
+            assertThatThrownBy(() -> profileService.uploadAvatar(file))
                     .isInstanceOf(ResponseStatusException.class);
         }
     }

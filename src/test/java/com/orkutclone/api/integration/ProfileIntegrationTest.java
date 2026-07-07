@@ -6,11 +6,11 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
-import java.util.Base64;
 import java.util.UUID;
 
 import static org.hamcrest.Matchers.*;
@@ -340,43 +340,35 @@ class ProfileIntegrationTest extends BaseIntegrationTest {
     @DisplayName("POST/DELETE /api/profile/avatar — Avatar")
     class Avatar {
 
-        private String createValidBase64Image() throws Exception {
+        private MockMultipartFile validPngUpload() throws Exception {
             BufferedImage image = new BufferedImage(64, 64, BufferedImage.TYPE_INT_RGB);
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             ImageIO.write(image, "png", baos);
-            return "data:image/png;base64," + Base64.getEncoder().encodeToString(baos.toByteArray());
+            return new MockMultipartFile("file", "avatar.png", "image/png", baos.toByteArray());
         }
 
         @Test
         @DisplayName("Upload de avatar válido persiste e aparece no /users/me")
         void shouldUploadAndReflectInProfile() throws Exception {
-            String avatar = createValidBase64Image();
-
-            mockMvc.perform(post("/api/profile/avatar")
-                            .header("Authorization", authHeader(user))
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content("""
-                                    {"avatar": "%s"}
-                                    """.formatted(avatar)))
+            mockMvc.perform(multipart("/api/profile/avatar")
+                            .file(validPngUpload())
+                            .header("Authorization", authHeader(user)))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.avatar").value(avatar));
+                    .andExpect(jsonPath("$.avatar").value(startsWith("/uploads/avatars/")))
+                    .andExpect(jsonPath("$.avatar").value(endsWith(".png")));
 
             mockMvc.perform(get("/users/me")
                             .header("Authorization", authHeader(user)))
-                    .andExpect(jsonPath("$.profilePicture").value(avatar))
-                    .andExpect(jsonPath("$.avatar").value(avatar));
+                    .andExpect(jsonPath("$.profilePicture").value(startsWith("/uploads/avatars/")))
+                    .andExpect(jsonPath("$.avatar").value(startsWith("/uploads/avatars/")));
         }
 
         @Test
         @DisplayName("Delete avatar remove e /users/me reflete null")
         void shouldDeleteAndReflectInProfile() throws Exception {
-            String avatar = createValidBase64Image();
-            mockMvc.perform(post("/api/profile/avatar")
-                            .header("Authorization", authHeader(user))
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content("""
-                                    {"avatar": "%s"}
-                                    """.formatted(avatar)))
+            mockMvc.perform(multipart("/api/profile/avatar")
+                            .file(validPngUpload())
+                            .header("Authorization", authHeader(user)))
                     .andExpect(status().isOk());
 
             mockMvc.perform(delete("/api/profile/avatar")
@@ -389,14 +381,14 @@ class ProfileIntegrationTest extends BaseIntegrationTest {
         }
 
         @Test
-        @DisplayName("400 — formato inválido é rejeitado")
+        @DisplayName("400 — arquivo que não é imagem é rejeitado")
         void shouldRejectInvalidFormat() throws Exception {
-            mockMvc.perform(post("/api/profile/avatar")
-                            .header("Authorization", authHeader(user))
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content("""
-                                    {"avatar": "data:text/plain;base64,abc"}
-                                    """))
+            MockMultipartFile notImage = new MockMultipartFile(
+                    "file", "notes.txt", "text/plain", "isto nao eh uma imagem".getBytes());
+
+            mockMvc.perform(multipart("/api/profile/avatar")
+                            .file(notImage)
+                            .header("Authorization", authHeader(user)))
                     .andExpect(status().isBadRequest());
         }
 
@@ -404,14 +396,10 @@ class ProfileIntegrationTest extends BaseIntegrationTest {
         @DisplayName("Avatar atualizado reflete no authorAvatar dos scraps")
         void shouldReflectInScrapAuthorAvatar() throws Exception {
             AuthResponse other = registerUniqueUser();
-            String avatar = createValidBase64Image();
 
-            mockMvc.perform(post("/api/profile/avatar")
-                            .header("Authorization", authHeader(user))
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content("""
-                                    {"avatar": "%s"}
-                                    """.formatted(avatar)))
+            mockMvc.perform(multipart("/api/profile/avatar")
+                            .file(validPngUpload())
+                            .header("Authorization", authHeader(user)))
                     .andExpect(status().isOk());
 
             mockMvc.perform(post("/scraps")
@@ -421,7 +409,7 @@ class ProfileIntegrationTest extends BaseIntegrationTest {
                                     {"content": "Com avatar!", "ownerId": "%s"}
                                     """.formatted(other.userId())))
                     .andExpect(status().isCreated())
-                    .andExpect(jsonPath("$.authorAvatar").value(avatar));
+                    .andExpect(jsonPath("$.authorAvatar").value(startsWith("/uploads/avatars/")));
         }
     }
 }

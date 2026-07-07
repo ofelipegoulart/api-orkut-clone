@@ -4,16 +4,37 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.io.IOException;
+import java.nio.file.Paths;
 
 @Configuration
-public class WebConfig {
+public class WebConfig implements WebMvcConfigurer {
+
+    @Value("${app.storage.avatar-dir:uploads/avatars}")
+    private String avatarDir;
+
+    @Value("${app.storage.public-base-url:/uploads/avatars}")
+    private String publicBaseUrl;
+
+    @Override
+    public void addResourceHandlers(ResourceHandlerRegistry registry) {
+        String pattern = publicBaseUrl.endsWith("/") ? publicBaseUrl + "**" : publicBaseUrl + "/**";
+        String location = Paths.get(avatarDir).toAbsolutePath().normalize().toUri().toString();
+        if (!location.endsWith("/")) {
+            location = location + "/";
+        }
+        registry.addResourceHandler(pattern)
+                .addResourceLocations(location);
+    }
 
     @Bean
     public FilterRegistrationBean<OncePerRequestFilter> traceMethodFilter() {

@@ -11,8 +11,10 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.UUID;
 
@@ -271,13 +273,13 @@ public class ProfileController {
         return ResponseEntity.ok(profileService.updatePersonal(request));
     }
 
-    @PostMapping("/avatar")
+    @PostMapping(value = "/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Upload avatar")
     @ApiResponse(responseCode = "200", description = "Avatar uploaded")
     @ApiResponse(responseCode = "400", description = "Validation failed")
     @ApiResponse(responseCode = "401", description = "Not authenticated")
-    public ResponseEntity<AvatarResponse> uploadAvatar(@Valid @RequestBody AvatarRequest request) {
-        return ResponseEntity.ok(profileService.uploadAvatar(request));
+    public ResponseEntity<AvatarResponse> uploadAvatar(@RequestParam("file") MultipartFile file) {
+        return ResponseEntity.ok(profileService.uploadAvatar(file));
     }
 
     @DeleteMapping("/avatar")

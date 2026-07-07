@@ -12,13 +12,16 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import org.springframework.web.multipart.MultipartFile;
+
 import javax.imageio.ImageIO;
-import java.awt.image.BufferedImage;
+import javax.imageio.ImageReader;
+import javax.imageio.stream.ImageInputStream;
 import java.io.ByteArrayInputStream;
-import java.util.Base64;
+import java.io.IOException;
+import java.util.Iterator;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -31,11 +34,11 @@ public class ProfileService {
     private final UserProfileContactRepository contactRepository;
     private final UserProfileProfessionalRepository professionalRepository;
     private final UserProfilePersonalRepository personalRepository;
+    private final com.orkutclone.api.support.AvatarStorageService avatarStorage;
 
     private static final long MAX_AVATAR_SIZE = 10L * 1024 * 1024;
     private static final int MIN_AVATAR_DIMENSION = 32;
-    private static final Pattern DATA_URI_PATTERN =
-            Pattern.compile("^data:image/(png|jpe?g|gif|bmp);base64,(.+)$", Pattern.DOTALL);
+    private static final Set<String> ALLOWED_FORMATS = Set.of("png", "jpg", "gif", "bmp");
 
     // ── General ──
 
@@ -249,53 +252,86 @@ public class ProfileService {
 
     @Transactional
     @CacheEvict(cacheNames = "profileOverview", allEntries = true)
-    public AvatarResponse uploadAvatar(AvatarRequest request) {
-        Matcher matcher = DATA_URI_PATTERN.matcher(request.avatar());
-        if (!matcher.matches()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Invalid image format. Supported: PNG, JPG, GIF, BMP");
+    public AvatarResponse uploadAvatar(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No image file provided");
         }
 
-        byte[] decoded;
+        byte[] data;
         try {
-            decoded = Base64.getDecoder().decode(matcher.group(2));
-        } catch (IllegalArgumentException e) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid base64 data");
+            data = file.getBytes();
+        } catch (IOException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unable to read uploaded file");
         }
 
-        if (decoded.length > MAX_AVATAR_SIZE) {
+        if (data.length > MAX_AVATAR_SIZE) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Image exceeds maximum size of 10MB");
         }
 
-        try {
-            BufferedImage image = ImageIO.read(new ByteArrayInputStream(decoded));
-            if (image == null) {
+        // O formato é determinado pelos bytes reais (não pelo Content-Type declarado),
+        // o que impede spoofing de MIME type.
+        String extension = validateImageAndResolveExtension(data);
+        String url = avatarStorage.store(data, extension);
+
+        User user = userRepository.findById(authenticatedUser().getId()).orElseThrow();
+        String previous = user.getProfilePicture();
+        user.setProfilePicture(url);
+        userRepository.save(user);
+
+        if (previous != null && !previous.equals(url)) {
+            avatarStorage.delete(previous);
+        }
+
+        return new AvatarResponse(url);
+    }
+
+    private String validateImageAndResolveExtension(byte[] data) {
+        try (ImageInputStream iis = ImageIO.createImageInputStream(new ByteArrayInputStream(data))) {
+            if (iis == null) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unable to read image data");
             }
-            if (image.getWidth() < MIN_AVATAR_DIMENSION || image.getHeight() < MIN_AVATAR_DIMENSION) {
+            Iterator<ImageReader> readers = ImageIO.getImageReaders(iis);
+            if (!readers.hasNext()) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Image must be at least 32x32 pixels");
+                        "Invalid image format. Supported: PNG, JPG, GIF, BMP");
+            }
+            ImageReader reader = readers.next();
+            try {
+                String extension = normalizeExtension(reader.getFormatName());
+                if (!ALLOWED_FORMATS.contains(extension)) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            "Invalid image format. Supported: PNG, JPG, GIF, BMP");
+                }
+                reader.setInput(iis);
+                if (reader.getWidth(0) < MIN_AVATAR_DIMENSION || reader.getHeight(0) < MIN_AVATAR_DIMENSION) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            "Image must be at least 32x32 pixels");
+                }
+                return extension;
+            } finally {
+                reader.dispose();
             }
         } catch (ResponseStatusException e) {
             throw e;
         } catch (Exception e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unable to process image");
         }
-
-        User user = userRepository.findById(authenticatedUser().getId()).orElseThrow();
-        user.setProfilePicture(request.avatar());
-        userRepository.save(user);
-
-        return new AvatarResponse(request.avatar());
     }
 
     @Transactional
     @CacheEvict(cacheNames = "profileOverview", allEntries = true)
     public void deleteAvatar() {
         User user = userRepository.findById(authenticatedUser().getId()).orElseThrow();
+        String previous = user.getProfilePicture();
         user.setProfilePicture(null);
         userRepository.save(user);
+        avatarStorage.delete(previous);
+    }
+
+    private static String normalizeExtension(String imageType) {
+        String type = imageType.toLowerCase();
+        return type.equals("jpeg") ? "jpg" : type;
     }
 
     // ── Get-or-create helpers ──
