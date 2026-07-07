@@ -6,6 +6,7 @@ import com.orkutclone.api.model.ProfileRating;
 import com.orkutclone.api.model.User;
 import com.orkutclone.api.repository.ProfileRatingRepository;
 import com.orkutclone.api.repository.UserRepository;
+import com.orkutclone.api.repository.projection.RatingSummaryProjection;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.http.HttpStatus;
@@ -50,6 +51,19 @@ public class ProfileRatingService {
         }
 
         return profileRatingRepository.save(rating);
+    }
+
+    @Transactional(readOnly = true)
+    public ProfileOverviewDTO.RatingsDTO getAverageRatings(UUID targetUserId) {
+        if (!userRepository.existsById(targetUserId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
+        }
+
+        RatingSummaryProjection summary = profileRatingRepository.findSummaryByTargetId(targetUserId);
+        return new ProfileOverviewDTO.RatingsDTO(
+                summary.getLegalPercentage() == null ? 0D : summary.getLegalPercentage(),
+                summary.getTrustworthyPercentage() == null ? 0D : summary.getTrustworthyPercentage(),
+                summary.getSexyPercentage() == null ? 0D : summary.getSexyPercentage());
     }
 
     @Transactional(readOnly = true)

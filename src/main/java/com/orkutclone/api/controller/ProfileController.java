@@ -132,6 +132,15 @@ public class ProfileController {
         return ResponseEntity.noContent().build();
     }
 
+    @GetMapping("/ratings/{targetUserId}/average")
+    @Operation(summary = "Get the average ratings a profile has received")
+    @ApiResponse(responseCode = "200", description = "Average ratings retrieved")
+    @ApiResponse(responseCode = "401", description = "Not authenticated")
+    @ApiResponse(responseCode = "404", description = "User not found")
+    public ResponseEntity<ProfileOverviewDTO.RatingsDTO> getAverageRatings(@PathVariable UUID targetUserId) {
+        return ResponseEntity.ok(profileRatingService.getAverageRatings(targetUserId));
+    }
+
     @PostMapping("/testimonials/{targetUserId}")
     @Operation(summary = "Send a testimonial")
     @ApiResponse(responseCode = "201", description = "Testimonial sent")
