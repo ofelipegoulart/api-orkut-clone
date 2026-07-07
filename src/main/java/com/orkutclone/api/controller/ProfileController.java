@@ -38,11 +38,53 @@ public class ProfileController {
     }
 
     @PostMapping("/friends/{friendUserId}")
-    @Operation(summary = "Add a friend")
-    @ApiResponse(responseCode = "204", description = "Friend added")
+    @Operation(summary = "Send a friend request")
+    @ApiResponse(responseCode = "201", description = "Friend request sent")
     @ApiResponse(responseCode = "401", description = "Not authenticated")
-    public ResponseEntity<Void> addFriend(@PathVariable UUID friendUserId) {
-        profileFriendService.addFriend(friendUserId);
+    @ApiResponse(responseCode = "409", description = "Already friends or request already exists")
+    public ResponseEntity<FriendRequestDTO> sendFriendRequest(@PathVariable UUID friendUserId) {
+        var request = profileFriendService.sendRequest(friendUserId);
+        return ResponseEntity.status(201).body(new FriendRequestDTO(
+                request.getId(),
+                request.getReceiver().getId(),
+                request.getReceiver().getName(),
+                request.getReceiver().getProfilePicture(),
+                request.getCreatedAt() == null ? null : request.getCreatedAt().atOffset(java.time.ZoneOffset.UTC)));
+    }
+
+    @GetMapping("/friends/requests")
+    @Operation(summary = "List received (pending) friend requests")
+    @ApiResponse(responseCode = "200", description = "Friend requests retrieved")
+    @ApiResponse(responseCode = "401", description = "Not authenticated")
+    public ResponseEntity<java.util.List<FriendRequestDTO>> listReceivedFriendRequests() {
+        return ResponseEntity.ok(profileFriendService.listReceivedRequests());
+    }
+
+    @GetMapping("/friends/requests/sent")
+    @Operation(summary = "List sent friend requests")
+    @ApiResponse(responseCode = "200", description = "Friend requests retrieved")
+    @ApiResponse(responseCode = "401", description = "Not authenticated")
+    public ResponseEntity<java.util.List<FriendRequestDTO>> listSentFriendRequests() {
+        return ResponseEntity.ok(profileFriendService.listSentRequests());
+    }
+
+    @PostMapping("/friends/requests/{requestId}/accept")
+    @Operation(summary = "Accept a friend request")
+    @ApiResponse(responseCode = "204", description = "Friend request accepted")
+    @ApiResponse(responseCode = "401", description = "Not authenticated")
+    @ApiResponse(responseCode = "404", description = "Friend request not found")
+    public ResponseEntity<Void> acceptFriendRequest(@PathVariable UUID requestId) {
+        profileFriendService.acceptRequest(requestId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/friends/requests/{requestId}")
+    @Operation(summary = "Decline a received request or cancel a sent one")
+    @ApiResponse(responseCode = "204", description = "Friend request removed")
+    @ApiResponse(responseCode = "401", description = "Not authenticated")
+    @ApiResponse(responseCode = "404", description = "Friend request not found")
+    public ResponseEntity<Void> declineOrCancelFriendRequest(@PathVariable UUID requestId) {
+        profileFriendService.declineOrCancelRequest(requestId);
         return ResponseEntity.noContent().build();
     }
 
