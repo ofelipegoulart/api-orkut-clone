@@ -36,6 +36,7 @@ public class ProfileService {
     private final UserProfilePersonalRepository personalRepository;
     private final com.orkutclone.api.support.AvatarStorageService avatarStorage;
 
+    private static final String DATING_INTEREST = "namoro";
     private static final long MAX_AVATAR_SIZE = 10L * 1024 * 1024;
     private static final int MIN_AVATAR_DIMENSION = 32;
     private static final Set<String> ALLOWED_FORMATS = Set.of("png", "jpg", "gif", "bmp");
@@ -83,6 +84,12 @@ public class ProfileService {
         if (dto.interestedIn() != null) replaceCollection(g.getInterestedIn(), dto.interestedIn());
         AllowedProfileValues.validateOption(dto.datingPreference(), AllowedProfileValues.DATING_PREFERENCE, "datingPreference");
         if (dto.datingPreference() != null) g.setDatingPreference(dto.datingPreference());
+
+        // "interessado(a) em [gênero]" (datingPreference) só faz sentido junto de "namoro"
+        // em interestedIn. Se "namoro" for removido, a preferência também é descartada.
+        if (!g.getInterestedIn().contains(DATING_INTEREST)) {
+            g.setDatingPreference(null);
+        }
 
         generalRepository.save(g);
         syncUserName(g);

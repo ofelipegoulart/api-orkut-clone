@@ -386,6 +386,99 @@ class ProfileServiceTest {
             assertThat(result.gender()).isEqualTo("masculino");
             assertThat(result.city()).isEqualTo("São Paulo");
         }
+
+        @Test
+        @DisplayName("Remover 'namoro' de interessado(a) em deve limpar a preferência de gênero")
+        void shouldClearDatingPreferenceWhenNamoroRemoved() {
+            stubCoreProfile();
+            UserProfileGeneral general = createGeneralWithDefaults();
+            general.getInterestedIn().add("namoro");
+            general.setDatingPreference("mulheres");
+            when(generalRepository.findByProfileId(coreProfile.getId())).thenReturn(Optional.of(general));
+            when(generalRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+            GeneralProfileDTO dto = new GeneralProfileDTO(
+                    null, null, null, null,
+                    null, null, null, null, null,
+                    null, null, null, null,
+                    null, null, null, null, null, null, null, null,
+                    List.of("amigos"), null
+            );
+
+            GeneralProfileDTO result = profileService.updateGeneral(dto);
+
+            assertThat(result.interestedIn()).containsExactly("amigos");
+            assertThat(result.datingPreference()).isNull();
+        }
+
+        @Test
+        @DisplayName("Esvaziar interessado(a) em também limpa a preferência de gênero")
+        void shouldClearDatingPreferenceWhenInterestedInCleared() {
+            stubCoreProfile();
+            UserProfileGeneral general = createGeneralWithDefaults();
+            general.getInterestedIn().add("namoro");
+            general.setDatingPreference("homens e mulheres");
+            when(generalRepository.findByProfileId(coreProfile.getId())).thenReturn(Optional.of(general));
+            when(generalRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+            GeneralProfileDTO dto = new GeneralProfileDTO(
+                    null, null, null, null,
+                    null, null, null, null, null,
+                    null, null, null, null,
+                    null, null, null, null, null, null, null, null,
+                    List.of(), null
+            );
+
+            GeneralProfileDTO result = profileService.updateGeneral(dto);
+
+            assertThat(result.interestedIn()).isEmpty();
+            assertThat(result.datingPreference()).isNull();
+        }
+
+        @Test
+        @DisplayName("Definir preferência de gênero sem 'namoro' selecionado não persiste")
+        void shouldNotKeepDatingPreferenceWithoutNamoro() {
+            stubCoreProfile();
+            UserProfileGeneral general = createGeneralWithDefaults();
+            when(generalRepository.findByProfileId(coreProfile.getId())).thenReturn(Optional.of(general));
+            when(generalRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+            GeneralProfileDTO dto = new GeneralProfileDTO(
+                    null, null, null, null,
+                    null, null, null, null, null,
+                    null, null, null, null,
+                    null, null, null, null, null, null, null, null,
+                    List.of("amigos", "contatos profissionais"), "mulheres"
+            );
+
+            GeneralProfileDTO result = profileService.updateGeneral(dto);
+
+            assertThat(result.datingPreference()).isNull();
+        }
+
+        @Test
+        @DisplayName("Preferência de gênero é mantida enquanto 'namoro' continuar selecionado")
+        void shouldKeepDatingPreferenceWhenNamoroStays() {
+            stubCoreProfile();
+            UserProfileGeneral general = createGeneralWithDefaults();
+            general.getInterestedIn().add("namoro");
+            general.setDatingPreference("mulheres");
+            when(generalRepository.findByProfileId(coreProfile.getId())).thenReturn(Optional.of(general));
+            when(generalRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+            GeneralProfileDTO dto = new GeneralProfileDTO(
+                    null, null, null, null,
+                    null, null, null, null, null,
+                    null, null, null, null,
+                    null, null, null, null, null, null, null, null,
+                    List.of("namoro", "amigos"), null
+            );
+
+            GeneralProfileDTO result = profileService.updateGeneral(dto);
+
+            assertThat(result.interestedIn()).contains("namoro");
+            assertThat(result.datingPreference()).isEqualTo("mulheres");
+        }
     }
 
     @Nested
