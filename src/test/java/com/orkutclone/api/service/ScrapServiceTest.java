@@ -758,6 +758,59 @@ class ScrapServiceTest {
     }
 
     @Nested
+    @DisplayName("Apagar Recado Enviado - Autor removendo o próprio recado")
+    class DeleteOwnSentScrap {
+
+        @Test
+        @DisplayName("O autor pode apagar um recado que enviou no mural de outra pessoa")
+        void authorCanDeleteOwnSentScrap() {
+            Scrap scrap = buildScrap(felipe, maria, "Recado que o Felipe mandou", false);
+            when(scrapRepository.findById(scrap.getId())).thenReturn(Optional.of(scrap));
+
+            scrapService.deleteOwnSent(scrap.getId());
+
+            verify(scrapRepository).delete(scrap);
+        }
+
+        @Test
+        @DisplayName("O dono do mural NÃO pode usar este endpoint para apagar recados recebidos")
+        void wallOwnerCannotDeleteViaSentEndpoint() {
+            Scrap scrap = buildScrap(maria, felipe, "Recado que o Felipe recebeu", false);
+            when(scrapRepository.findById(scrap.getId())).thenReturn(Optional.of(scrap));
+
+            assertThatThrownBy(() -> scrapService.deleteOwnSent(scrap.getId()))
+                    .isInstanceOf(ResponseStatusException.class)
+                    .hasMessageContaining("Only the author can delete");
+
+            verify(scrapRepository, never()).delete(any());
+        }
+
+        @Test
+        @DisplayName("Terceiro NÃO pode apagar recado de outros por este endpoint")
+        void thirdPartyCannotDeleteViaSentEndpoint() {
+            Scrap scrap = buildScrap(maria, joao, "Não é da conta do Felipe", false);
+            when(scrapRepository.findById(scrap.getId())).thenReturn(Optional.of(scrap));
+
+            assertThatThrownBy(() -> scrapService.deleteOwnSent(scrap.getId()))
+                    .isInstanceOf(ResponseStatusException.class)
+                    .hasMessageContaining("Only the author can delete");
+
+            verify(scrapRepository, never()).delete(any());
+        }
+
+        @Test
+        @DisplayName("Apagar recado enviado inexistente retorna 404")
+        void shouldReturn404WhenDeletingNonExistentSentScrap() {
+            UUID fakeId = UUID.randomUUID();
+            when(scrapRepository.findById(fakeId)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> scrapService.deleteOwnSent(fakeId))
+                    .isInstanceOf(ResponseStatusException.class)
+                    .hasMessageContaining("Scrap not found");
+        }
+    }
+
+    @Nested
     @DisplayName("Listar Recados do Mural - Visitando o perfil de alguém")
     class FindByOwner {
 

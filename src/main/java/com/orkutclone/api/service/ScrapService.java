@@ -114,6 +114,21 @@ public class ScrapService {
         profileStatisticsService.refreshSnapshot(ownerId);
     }
 
+    @Transactional
+    @CacheEvict(cacheNames = "profileOverview", allEntries = true)
+    public void deleteOwnSent(UUID scrapId) {
+        User current = authenticatedUser();
+        Scrap scrap = findScrapOrThrow(scrapId);
+
+        if (!scrap.getAuthor().getId().equals(current.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the author can delete this scrap");
+        }
+
+        UUID ownerId = scrap.getOwner().getId();
+        scrapRepository.delete(scrap);
+        profileStatisticsService.refreshSnapshot(ownerId);
+    }
+
     @Transactional(readOnly = true)
     public Page<ScrapResponse> findByOwner(UUID ownerId, int page, int size) {
         validatePageSize(size);

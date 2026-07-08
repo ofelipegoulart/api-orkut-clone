@@ -79,6 +79,17 @@ public class ScrapController {
         return ResponseEntity.noContent().build();
     }
 
+    @DeleteMapping("/scraps/sent/{id}")
+    @Operation(summary = "Delete a scrap the current user sent")
+    @ApiResponse(responseCode = "204", description = "Scrap deleted")
+    @ApiResponse(responseCode = "401", description = "Not authenticated")
+    @ApiResponse(responseCode = "403", description = "Not the author")
+    @ApiResponse(responseCode = "404", description = "Scrap not found")
+    public ResponseEntity<Void> deleteOwnSent(@PathVariable UUID id) {
+        scrapService.deleteOwnSent(id);
+        return ResponseEntity.noContent().build();
+    }
+
     @DeleteMapping("/scraps")
     @Operation(summary = "Delete multiple scraps")
     @ApiResponse(responseCode = "204", description = "Scraps deleted")
