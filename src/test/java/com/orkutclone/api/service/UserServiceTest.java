@@ -18,8 +18,8 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -51,7 +51,7 @@ class UserServiceTest {
                 .bio("Amando o Orkut!")
                 .birthDate(LocalDate.of(1995, 3, 15))
                 .role(Role.USER)
-                .createdAt(LocalDateTime.now())
+                .createdAt(Instant.now())
                 .build();
 
         SecurityContextHolder.getContext().setAuthentication(

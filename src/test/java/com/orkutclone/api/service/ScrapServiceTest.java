@@ -25,7 +25,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -103,8 +103,8 @@ class ScrapServiceTest {
                 .author(author)
                 .owner(owner)
                 .isPrivate(isPrivate)
-                .createdAt(LocalDateTime.now())
-                .updatedAt(LocalDateTime.now())
+                .createdAt(Instant.now())
+                .updatedAt(Instant.now())
                 .build();
     }
 
@@ -112,8 +112,8 @@ class ScrapServiceTest {
         when(scrapRepository.save(any(Scrap.class))).thenAnswer(inv -> {
             Scrap s = inv.getArgument(0);
             if (s.getId() == null) s.setId(UUID.randomUUID());
-            if (s.getCreatedAt() == null) s.setCreatedAt(LocalDateTime.now());
-            s.setUpdatedAt(LocalDateTime.now());
+            if (s.getCreatedAt() == null) s.setCreatedAt(Instant.now());
+            s.setUpdatedAt(Instant.now());
             return s;
         });
     }
