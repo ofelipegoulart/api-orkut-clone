@@ -32,6 +32,10 @@ public class ProfileRatingService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot rate your own profile");
         }
 
+        if (request.legal() == null && request.trustworthy() == null && request.sexy() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "At least one category must be rated");
+        }
+
         User target = userRepository.findById(targetUserId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 

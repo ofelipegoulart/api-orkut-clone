@@ -126,8 +126,9 @@ public class ProfileController {
     }
 
     @PostMapping("/ratings/{targetUserId}")
-    @Operation(summary = "Rate a profile")
+    @Operation(summary = "Rate a profile", description = "Rate one, two, or all three categories. Any omitted category is left unchanged; at least one must be provided.")
     @ApiResponse(responseCode = "204", description = "Profile rated")
+    @ApiResponse(responseCode = "400", description = "No category provided or rating own profile")
     @ApiResponse(responseCode = "401", description = "Not authenticated")
     public ResponseEntity<Void> rateProfile(@PathVariable UUID targetUserId, @RequestBody @Valid CreateProfileRatingRequest request) {
         profileRatingService.rate(targetUserId, request);
