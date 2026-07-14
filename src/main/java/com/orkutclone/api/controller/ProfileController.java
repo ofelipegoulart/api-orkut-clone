@@ -4,7 +4,6 @@ import com.orkutclone.api.dto.profile.*;
 import com.orkutclone.api.service.ProfileService;
 import com.orkutclone.api.service.ProfileOverviewService;
 import com.orkutclone.api.service.ProfileFriendService;
-import com.orkutclone.api.service.ProfileCommunityService;
 import com.orkutclone.api.service.ProfileRatingService;
 import com.orkutclone.api.service.ProfileTestimonialService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -26,7 +25,6 @@ public class ProfileController {
     private final ProfileService profileService;
     private final ProfileOverviewService profileOverviewService;
     private final ProfileFriendService profileFriendService;
-    private final ProfileCommunityService profileCommunityService;
     private final ProfileRatingService profileRatingService;
     private final ProfileTestimonialService profileTestimonialService;
 
@@ -96,32 +94,6 @@ public class ProfileController {
     @ApiResponse(responseCode = "401", description = "Not authenticated")
     public ResponseEntity<Void> removeFriend(@PathVariable UUID friendUserId) {
         profileFriendService.removeFriend(friendUserId);
-        return ResponseEntity.noContent().build();
-    }
-
-    @PostMapping("/communities")
-    @Operation(summary = "Create a community")
-    @ApiResponse(responseCode = "201", description = "Community created")
-    @ApiResponse(responseCode = "401", description = "Not authenticated")
-    public ResponseEntity<ProfileOverviewDTO.CommunityCardDTO> createCommunity(@RequestBody @Valid CreateCommunityRequest request) {
-        return ResponseEntity.status(201).body(profileCommunityService.create(request));
-    }
-
-    @PostMapping("/communities/{communityId}/join")
-    @Operation(summary = "Join a community")
-    @ApiResponse(responseCode = "204", description = "Joined community")
-    @ApiResponse(responseCode = "401", description = "Not authenticated")
-    public ResponseEntity<Void> joinCommunity(@PathVariable UUID communityId) {
-        profileCommunityService.join(communityId);
-        return ResponseEntity.noContent().build();
-    }
-
-    @DeleteMapping("/communities/{communityId}/leave")
-    @Operation(summary = "Leave a community")
-    @ApiResponse(responseCode = "204", description = "Left community")
-    @ApiResponse(responseCode = "401", description = "Not authenticated")
-    public ResponseEntity<Void> leaveCommunity(@PathVariable UUID communityId) {
-        profileCommunityService.leave(communityId);
         return ResponseEntity.noContent().build();
     }
 
