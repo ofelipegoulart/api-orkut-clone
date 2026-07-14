@@ -1,6 +1,7 @@
 package com.orkutclone.api.service;
 
 import com.orkutclone.api.dto.profile.CreateProfileRatingRequest;
+import com.orkutclone.api.dto.profile.MyProfileRatingDTO;
 import com.orkutclone.api.dto.profile.ProfileOverviewDTO;
 import com.orkutclone.api.model.ProfileRating;
 import com.orkutclone.api.model.User;
@@ -68,6 +69,20 @@ public class ProfileRatingService {
                 summary.getLegalPercentage() == null ? 0D : summary.getLegalPercentage(),
                 summary.getTrustworthyPercentage() == null ? 0D : summary.getTrustworthyPercentage(),
                 summary.getSexyPercentage() == null ? 0D : summary.getSexyPercentage());
+    }
+
+    @Transactional(readOnly = true)
+    public MyProfileRatingDTO getMyRatedCategories(UUID targetUserId) {
+        if (!userRepository.existsById(targetUserId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
+        }
+
+        return profileRatingRepository.findByTargetIdAndRaterId(targetUserId, authenticatedUser().getId())
+                .map(rating -> new MyProfileRatingDTO(
+                        rating.getLegalPercentage() != null,
+                        rating.getTrustworthyPercentage() != null,
+                        rating.getSexyPercentage() != null))
+                .orElseGet(() -> new MyProfileRatingDTO(false, false, false));
     }
 
     @Transactional(readOnly = true)
