@@ -1,5 +1,6 @@
 package com.orkutclone.api.model;
 
+import com.orkutclone.api.model.enums.MembershipStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -29,6 +30,15 @@ public class CommunityMembership {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "community_id", nullable = false)
     private Community community;
+
+    /**
+     * A row only represents an effective membership when {@code APPROVED}. Moderated
+     * communities park join requests as {@code PENDING} until the owner acts on them.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    @Builder.Default
+    private MembershipStatus status = MembershipStatus.APPROVED;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
