@@ -3,6 +3,7 @@ package com.orkutclone.api.service;
 import com.orkutclone.api.dto.profile.*;
 import com.orkutclone.api.model.*;
 import com.orkutclone.api.repository.*;
+import com.orkutclone.api.support.UploadedImage;
 import com.orkutclone.api.validation.AllowedProfileValues;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
@@ -14,14 +15,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import org.springframework.web.multipart.MultipartFile;
 
-import javax.imageio.ImageIO;
-import javax.imageio.ImageReader;
-import javax.imageio.stream.ImageInputStream;
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -37,9 +31,6 @@ public class ProfileService {
     private final com.orkutclone.api.support.AvatarStorageService avatarStorage;
 
     private static final String DATING_INTEREST = "namoro";
-    private static final long MAX_AVATAR_SIZE = 10L * 1024 * 1024;
-    private static final int MIN_AVATAR_DIMENSION = 32;
-    private static final Set<String> ALLOWED_FORMATS = Set.of("png", "jpg", "gif", "bmp");
 
     // ── General ──
 
@@ -260,26 +251,8 @@ public class ProfileService {
     @Transactional
     @CacheEvict(cacheNames = "profileOverview", allEntries = true)
     public AvatarResponse uploadAvatar(MultipartFile file) {
-        if (file == null || file.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No image file provided");
-        }
-
-        byte[] data;
-        try {
-            data = file.getBytes();
-        } catch (IOException e) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unable to read uploaded file");
-        }
-
-        if (data.length > MAX_AVATAR_SIZE) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Image exceeds maximum size of 10MB");
-        }
-
-        // O formato é determinado pelos bytes reais (não pelo Content-Type declarado),
-        // o que impede spoofing de MIME type.
-        String extension = validateImageAndResolveExtension(data);
-        String url = avatarStorage.store(data, extension);
+        UploadedImage image = UploadedImage.from(file);
+        String url = avatarStorage.store(image.data(), image.extension());
 
         User user = userRepository.findById(authenticatedUser().getId()).orElseThrow();
         String previous = user.getProfilePicture();
@@ -293,39 +266,6 @@ public class ProfileService {
         return new AvatarResponse(url);
     }
 
-    private String validateImageAndResolveExtension(byte[] data) {
-        try (ImageInputStream iis = ImageIO.createImageInputStream(new ByteArrayInputStream(data))) {
-            if (iis == null) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unable to read image data");
-            }
-            Iterator<ImageReader> readers = ImageIO.getImageReaders(iis);
-            if (!readers.hasNext()) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Invalid image format. Supported: PNG, JPG, GIF, BMP");
-            }
-            ImageReader reader = readers.next();
-            try {
-                String extension = normalizeExtension(reader.getFormatName());
-                if (!ALLOWED_FORMATS.contains(extension)) {
-                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                            "Invalid image format. Supported: PNG, JPG, GIF, BMP");
-                }
-                reader.setInput(iis);
-                if (reader.getWidth(0) < MIN_AVATAR_DIMENSION || reader.getHeight(0) < MIN_AVATAR_DIMENSION) {
-                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                            "Image must be at least 32x32 pixels");
-                }
-                return extension;
-            } finally {
-                reader.dispose();
-            }
-        } catch (ResponseStatusException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unable to process image");
-        }
-    }
-
     @Transactional
     @CacheEvict(cacheNames = "profileOverview", allEntries = true)
     public void deleteAvatar() {
@@ -334,11 +274,6 @@ public class ProfileService {
         user.setProfilePicture(null);
         userRepository.save(user);
         avatarStorage.delete(previous);
-    }
-
-    private static String normalizeExtension(String imageType) {
-        String type = imageType.toLowerCase();
-        return type.equals("jpeg") ? "jpg" : type;
     }
 
     // ── Get-or-create helpers ──
