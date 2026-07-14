@@ -185,6 +185,17 @@ public class ProfileController {
         return ResponseEntity.noContent().build();
     }
 
+    @DeleteMapping("/testimonials/{testimonialId}")
+    @Operation(summary = "Delete a testimonial", description = "The author or the target can delete a testimonial")
+    @ApiResponse(responseCode = "204", description = "Testimonial deleted")
+    @ApiResponse(responseCode = "401", description = "Not authenticated")
+    @ApiResponse(responseCode = "403", description = "Not the author or target")
+    @ApiResponse(responseCode = "404", description = "Testimonial not found")
+    public ResponseEntity<Void> deleteTestimonial(@PathVariable UUID testimonialId) {
+        profileTestimonialService.delete(testimonialId);
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/testimonials/sent")
     @Operation(summary = "List sent testimonials")
     @ApiResponse(responseCode = "200", description = "Testimonials retrieved")

@@ -78,6 +78,25 @@ public class ProfileTestimonialService {
         profileStatisticsService.refreshSnapshot(current.getId());
     }
 
+    @Transactional
+    @CacheEvict(cacheNames = "profileOverview", allEntries = true)
+    public void delete(UUID testimonialId) {
+        User current = authenticatedUser();
+        ProfileTestimonial testimonial = testimonialRepository.findById(testimonialId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Testimonial not found"));
+
+        boolean isAuthor = testimonial.getAuthor().getId().equals(current.getId());
+        boolean isTarget = testimonial.getTarget().getId().equals(current.getId());
+
+        if (!isAuthor && !isTarget) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the author or target can delete this testimonial");
+        }
+
+        UUID targetId = testimonial.getTarget().getId();
+        testimonialRepository.delete(testimonial);
+        profileStatisticsService.refreshSnapshot(targetId);
+    }
+
     @Transactional(readOnly = true)
     public List<ProfileOverviewDTO.TestimonialDTO> findReceived(UUID targetUserId, boolean includePending) {
         List<ProfileTestimonial> testimonials = includePending
