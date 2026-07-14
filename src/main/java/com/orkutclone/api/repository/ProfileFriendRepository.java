@@ -34,9 +34,8 @@ public interface ProfileFriendRepository extends JpaRepository<ProfileFriend, UU
             SELECT f.friend.id as id,
                    f.friend.name as name,
                    f.friend.profilePicture as avatar,
-                   COALESCE(stats.friendsCount, 0) as friendsCount
+                   (SELECT COUNT(ff) FROM ProfileFriend ff WHERE ff.user.id = f.friend.id) as friendsCount
             FROM ProfileFriend f
-            LEFT JOIN ProfileStatistics stats ON stats.user.id = f.friend.id
             WHERE f.user.id = :userId
             ORDER BY f.createdAt DESC
             """)
