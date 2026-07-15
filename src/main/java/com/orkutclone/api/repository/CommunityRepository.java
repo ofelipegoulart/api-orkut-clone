@@ -18,8 +18,9 @@ public interface CommunityRepository extends JpaRepository<Community, UUID> {
     /**
      * Loads the community together with its owner in a single query, avoiding a second
      * lazy-load round-trip for the owner when building the dashboard (open-in-view is disabled).
+     * The join is a LEFT JOIN because an orphaned community (owner left) has no owner to fetch.
      */
-    @Query("SELECT c FROM Community c JOIN FETCH c.owner WHERE c.id = :id")
+    @Query("SELECT c FROM Community c LEFT JOIN FETCH c.owner WHERE c.id = :id")
     Optional<Community> findByIdWithOwner(@Param("id") UUID id);
 
     /**

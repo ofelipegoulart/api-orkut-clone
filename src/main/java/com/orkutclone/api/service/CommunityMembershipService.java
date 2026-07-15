@@ -65,7 +65,11 @@ public class CommunityMembershipService {
         return new JoinResultDTO(status.name());
     }
 
-    /** Also withdraws a pending request, since neither leaves anything behind. */
+    /**
+     * Also withdraws a pending request, since neither leaves anything behind. If the owner
+     * leaves, the community is orphaned ({@code owner} becomes {@code null}) rather than
+     * transferred or blocked — moderation actions then require a new owner to claim it.
+     */
     @Transactional
     @CacheEvict(cacheNames = "profileOverview", allEntries = true)
     public void leave(UUID communityId) {
@@ -77,7 +81,11 @@ public class CommunityMembershipService {
         membershipRepository.delete(membership);
 
         if (membership.getStatus() == MembershipStatus.APPROVED) {
-            syncMembersCount(findCommunity(communityId));
+            Community community = findCommunity(communityId);
+            if (community.getOwner() != null && community.getOwner().getId().equals(current.getId())) {
+                community.setOwner(null);
+            }
+            syncMembersCount(community);
             profileStatisticsService.refreshSnapshot(current.getId());
         }
     }
