@@ -32,7 +32,9 @@ public record CommunityDashboardDTO(
             @Schema(nullable = true) LocationDTO location,
             CommunityDetailDTO.FeatureSettingsDTO features,
             long membersCount,
-            @Schema(nullable = true) OffsetDateTime createdAt
+            @Schema(nullable = true) OffsetDateTime createdAt,
+            @Schema(description = "The authenticated user's relation to this community", allowableValues = {"OWNER", "MEMBER", "PENDING", "NONE"})
+            String viewerRelation
     ) {}
 
     public record LocationDTO(

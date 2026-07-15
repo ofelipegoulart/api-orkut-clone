@@ -39,7 +39,8 @@ public class CommunityDashboardService {
         Community community = communityRepository.findByIdWithOwner(communityId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Community not found"));
 
-        requireContentVisibleTo(community, authenticatedUser());
+        User user = authenticatedUser();
+        requireContentVisibleTo(community, user);
 
         long membersCount = communityMembershipRepository.countByCommunityId(communityId);
 
@@ -56,12 +57,22 @@ public class CommunityDashboardService {
                 .toList();
 
         return new CommunityDashboardDTO(
-                toCommunityInfo(community, membersCount),
+                toCommunityInfo(community, membersCount, resolveViewerRelation(community, user)),
                 topics,
                 // TODO: populate once the poll subsystem exists.
                 null,
                 featuredMembers
         );
+    }
+
+    /** Ownership outranks membership: an owner is always shown as OWNER, never as MEMBER. */
+    private String resolveViewerRelation(Community community, User user) {
+        if (community.getOwner() != null && community.getOwner().getId().equals(user.getId())) {
+            return "OWNER";
+        }
+        return communityMembershipRepository.findByUserIdAndCommunityId(user.getId(), community.getId())
+                .map(membership -> membership.getStatus() == MembershipStatus.PENDING ? "PENDING" : "MEMBER")
+                .orElse("NONE");
     }
 
     /** A community with hidden content ("Oculta") only shows its dashboard to approved members. */
@@ -81,7 +92,7 @@ public class CommunityDashboardService {
         return (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
     }
 
-    private CommunityDashboardDTO.CommunityInfo toCommunityInfo(Community community, long membersCount) {
+    private CommunityDashboardDTO.CommunityInfo toCommunityInfo(Community community, long membersCount, String viewerRelation) {
         return new CommunityDashboardDTO.CommunityInfo(
                 community.getId(),
                 community.getName(),
@@ -97,7 +108,8 @@ public class CommunityDashboardService {
                 toLocation(community.getLocation()),
                 CommunityService.toFeaturesDTO(community.getFeatures()),
                 membersCount,
-                community.getCreatedAt() == null ? null : community.getCreatedAt().atOffset(ZoneOffset.UTC)
+                community.getCreatedAt() == null ? null : community.getCreatedAt().atOffset(ZoneOffset.UTC),
+                viewerRelation
         );
     }
 
