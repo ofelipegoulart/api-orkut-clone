@@ -37,7 +37,8 @@ public record ProfileOverviewDTO(
     public record CommunityCardDTO(
             UUID id,
             String name,
-            @Schema(nullable = true) String icon
+            @Schema(nullable = true) String icon,
+            long memberCount
     ) {}
 
     public record TestimonialDTO(

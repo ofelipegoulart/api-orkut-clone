@@ -38,7 +38,8 @@ public interface CommunityMembershipRepository extends JpaRepository<CommunityMe
     @Query("""
             SELECT c.id as id,
                    c.name as name,
-                   c.icon as icon
+                   c.icon as icon,
+                   (SELECT COUNT(m2) FROM CommunityMembership m2 WHERE m2.community.id = c.id AND m2.status = 'APPROVED') as memberCount
             FROM CommunityMembership m
             JOIN m.community c
             WHERE m.user.id = :userId AND m.status = 'APPROVED'

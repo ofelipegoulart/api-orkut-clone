@@ -6,4 +6,5 @@ public interface CommunityOverviewProjection {
     UUID getId();
     String getName();
     String getIcon();
+    Long getMemberCount();
 }

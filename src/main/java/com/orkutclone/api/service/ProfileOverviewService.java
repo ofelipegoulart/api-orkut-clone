@@ -220,7 +220,8 @@ public class ProfileOverviewService {
                 .map(projection -> new ProfileOverviewDTO.CommunityCardDTO(
                         projection.getId(),
                         projection.getName(),
-                        projection.getIcon()))
+                        projection.getIcon(),
+                        projection.getMemberCount() == null ? 0L : projection.getMemberCount()))
                 .toList();
     }
 
