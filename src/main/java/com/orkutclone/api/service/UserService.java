@@ -1,5 +1,7 @@
 package com.orkutclone.api.service;
 
+import com.orkutclone.api.dto.ChangePasswordRequest;
+import com.orkutclone.api.dto.DeleteAccountRequest;
 import com.orkutclone.api.dto.UpdateUserRequest;
 import com.orkutclone.api.dto.UserResponse;
 import com.orkutclone.api.model.User;
@@ -7,6 +9,7 @@ import com.orkutclone.api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -19,6 +22,7 @@ import java.util.UUID;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     public UserResponse getCurrentUser() {
         return toResponse(authenticatedUser());
@@ -57,6 +61,27 @@ public class UserService {
         }
 
         return toResponse(userRepository.save(user));
+    }
+
+    public void changePassword(ChangePasswordRequest request) {
+        User user = userRepository.findById(authenticatedUser().getId()).orElseThrow();
+
+        if (!passwordEncoder.matches(request.currentPassword(), user.getPassword())) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Current password is incorrect");
+        }
+
+        user.setPassword(passwordEncoder.encode(request.newPassword()));
+        userRepository.save(user);
+    }
+
+    public void deleteAccount(DeleteAccountRequest request) {
+        User user = userRepository.findById(authenticatedUser().getId()).orElseThrow();
+
+        if (!passwordEncoder.matches(request.password(), user.getPassword())) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Password is incorrect");
+        }
+
+        userRepository.delete(user);
     }
 
     private User authenticatedUser() {

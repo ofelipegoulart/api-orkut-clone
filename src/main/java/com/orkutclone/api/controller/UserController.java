@@ -1,10 +1,13 @@
 package com.orkutclone.api.controller;
 
+import com.orkutclone.api.dto.ChangePasswordRequest;
+import com.orkutclone.api.dto.DeleteAccountRequest;
 import com.orkutclone.api.dto.UpdateUserRequest;
 import com.orkutclone.api.dto.UserResponse;
 import com.orkutclone.api.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -41,5 +44,25 @@ public class UserController {
     @ApiResponse(responseCode = "401", description = "Not authenticated")
     public ResponseEntity<UserResponse> updateCurrentUser(@RequestBody UpdateUserRequest request) {
         return ResponseEntity.ok(userService.updateUser(request));
+    }
+
+    @PutMapping("/me/password")
+    @Operation(summary = "Change current user's password")
+    @ApiResponse(responseCode = "204", description = "Password changed")
+    @ApiResponse(responseCode = "400", description = "Validation failed")
+    @ApiResponse(responseCode = "401", description = "Not authenticated or current password is incorrect")
+    public ResponseEntity<Void> changePassword(@Valid @RequestBody ChangePasswordRequest request) {
+        userService.changePassword(request);
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/me")
+    @Operation(summary = "Delete current user's account")
+    @ApiResponse(responseCode = "204", description = "Account deleted")
+    @ApiResponse(responseCode = "400", description = "Validation failed")
+    @ApiResponse(responseCode = "401", description = "Not authenticated or password is incorrect")
+    public ResponseEntity<Void> deleteAccount(@Valid @RequestBody DeleteAccountRequest request) {
+        userService.deleteAccount(request);
+        return ResponseEntity.noContent().build();
     }
 }
