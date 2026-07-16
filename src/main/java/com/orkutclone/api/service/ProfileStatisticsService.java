@@ -21,6 +21,7 @@ public class ProfileStatisticsService {
     private final CommunityMembershipRepository communityMembershipRepository;
     private final ProfileTestimonialRepository profileTestimonialRepository;
     private final ProfileStatisticsRepository profileStatisticsRepository;
+    private final PhotoRepository photoRepository;
 
     @Transactional
     public ProfileStatistics getOrCreateSnapshot(UUID userId) {
@@ -44,6 +45,7 @@ public class ProfileStatisticsService {
         statistics.setFriendsCount(profileFriendRepository.countByUserId(userId));
         statistics.setCommunitiesCount(communityMembershipRepository.countByUserId(userId));
         statistics.setTestimonialsCount(profileTestimonialRepository.countByTargetId(userId));
+        statistics.setPhotosCount(photoRepository.countByAlbum_Owner_Id(userId));
         return profileStatisticsRepository.save(statistics);
     }
 }

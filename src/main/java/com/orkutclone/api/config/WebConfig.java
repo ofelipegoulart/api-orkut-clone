@@ -25,10 +25,21 @@ public class WebConfig implements WebMvcConfigurer {
     @Value("${app.storage.public-base-url:/uploads/avatars}")
     private String publicBaseUrl;
 
+    @Value("${app.storage.album-dir:uploads/albums}")
+    private String albumDir;
+
+    @Value("${app.storage.album-public-base-url:/uploads/albums}")
+    private String albumPublicBaseUrl;
+
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        String pattern = publicBaseUrl.endsWith("/") ? publicBaseUrl + "**" : publicBaseUrl + "/**";
-        String location = Paths.get(avatarDir).toAbsolutePath().normalize().toUri().toString();
+        addResourceHandler(registry, avatarDir, publicBaseUrl);
+        addResourceHandler(registry, albumDir, albumPublicBaseUrl);
+    }
+
+    private void addResourceHandler(ResourceHandlerRegistry registry, String dir, String publicUrl) {
+        String pattern = publicUrl.endsWith("/") ? publicUrl + "**" : publicUrl + "/**";
+        String location = Paths.get(dir).toAbsolutePath().normalize().toUri().toString();
         if (!location.endsWith("/")) {
             location = location + "/";
         }

@@ -3,10 +3,9 @@ spring:
     url: jdbc:postgresql://localhost:5432/orkut_clone
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:postgres}
-    driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     show-sql: false
     open-in-view: false
     properties:
@@ -14,6 +13,9 @@ spring:
         format_sql: true
         jdbc:
           time_zone: UTC
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
   servlet:
     multipart:
       max-file-size: 10MB
@@ -26,6 +28,8 @@ app:
   storage:
     avatar-dir: ${AVATAR_STORAGE_DIR:uploads/avatars}
     public-base-url: ${AVATAR_PUBLIC_URL:/uploads/avatars}
+    album-dir: ${ALBUM_STORAGE_DIR:uploads/albums}
+    album-public-base-url: ${ALBUM_PUBLIC_URL:/uploads/albums}
 
 jwt:
   secret: ${JWT_SECRET}

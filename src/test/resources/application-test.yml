@@ -19,3 +19,5 @@ app:
   storage:
     avatar-dir: target/test-avatars
     public-base-url: /uploads/avatars
+    album-dir: target/test-albums
+    album-public-base-url: /uploads/albums

@@ -51,6 +51,8 @@ com autenticação via **JWT** e persistência em **PostgreSQL**.
 - **Avaliações** — sistema de estrelinhas com média por usuário.
 - **Scraps (recados)** — envio, edição, exclusão, threads de resposta, marcação como
   lido e contagem de não lidos.
+- **Álbuns e fotos** — criação de múltiplos álbuns por usuário, upload de fotos,
+  legenda, capa e privacidade (todos / apenas amigos).
 - **Busca universal** — pesquisa por pessoas e comunidades com suporte a acentuação
   (`unaccent`), filtros de tipo, localização e idioma, com paginação.
 - **Estatísticas de perfil** — snapshot agregado atualizado conforme a atividade.
@@ -101,7 +103,9 @@ A aplicação lê as credenciais e o segredo JWT de variáveis de ambiente. Um a
 | `JWT_SECRET`         | **sim**     | —                               | Chave secreta (Base64) usada para assinar os tokens.  |
 | `AVATAR_STORAGE_DIR` | não         | `uploads/avatars`               | Diretório local onde os avatares são armazenados.     |
 | `AVATAR_PUBLIC_URL`  | não         | `/uploads/avatars`              | Caminho público servido para os avatares.             |
-| `CORS_ALLOWED_ORIGINS` *(via `cors.allowed-origins`)* | não | `http://localhost:3000,http://localhost:5173` | Origens permitidas para CORS. |
+| `ALBUM_STORAGE_DIR`  | não         | `uploads/albums`                | Diretório local onde as fotos de álbum são armazenadas (uma subpasta por álbum). |
+| `ALBUM_PUBLIC_URL`   | não         | `/uploads/albums`               | Caminho público servido para as fotos de álbum.        |
+| `CORS_ALLOWED_ORIGINS` *(via `cors.allowed-origins`)* | não | `http://localhost:3000,http://localhost:5173` | Origens permitidas para CORS — inclua o domínio de produção do front-end ao configurar na Railway. |
 
 > ⚠️ **`JWT_SECRET` não tem padrão** — a aplicação não sobe sem ele. Gere um segredo
 > forte em Base64, por exemplo:
@@ -239,6 +243,28 @@ A API é **stateless** (sem sessão de servidor); cada requisição é autentica
 | GET    | `/scraps/unread-count`        | Quantidade de não lidos            |
 | GET    | `/users/{userId}/scraps`      | Scraps de um usuário               |
 
+### Álbuns e fotos — `/api/albums`
+| Método | Rota                                    | Descrição                                                        |
+|--------|------------------------------------------|-------------------------------------------------------------------|
+| POST   | `/api/albums`                           | Cria álbum (`title`, `description?`, `privacy`)                   |
+| GET    | `/api/albums?userId=&page=&size=`       | Lista álbuns de um usuário (paginado; esconde `FRIENDS_ONLY` de quem não é amigo) |
+| GET    | `/api/albums/{id}`                      | Detalhe do álbum com suas fotos                                   |
+| PUT    | `/api/albums/{id}`                      | Edita título, descrição e privacidade                             |
+| DELETE | `/api/albums/{id}`                      | Apaga o álbum e todas as suas fotos (hard delete)                 |
+| POST   | `/api/albums/{id}/photos`               | Upload de uma foto (multipart, campo `file`)                      |
+| PATCH  | `/api/albums/{id}/photos/{photoId}`     | Edita a legenda da foto                                            |
+| PUT    | `/api/albums/{id}/cover`                | Define a foto de capa (`{ photoId }`)                             |
+| DELETE | `/api/albums/{id}/photos/{photoId}`     | Remove uma foto                                                    |
+
+> O modelo já suporta **múltiplos álbuns por usuário** (não há vínculo 1:1). O
+> front-end atual só navega para "Meu álbum" sem `albumId` na URL — ajustar as
+> rotas para passar o `albumId` é um passo pendente no front-end para expor essa
+> capacidade.
+>
+> O painel de "compartilhar com amigos/grupos" da UI é decorativo por enquanto:
+> só os dois níveis de privacidade (`PUBLIC` / `FRIENDS_ONLY`) são aplicados
+> pelo backend, sem ACL granular por amigo/grupo.
+
 ### Busca — `/search`
 | Método | Rota      | Parâmetros                                                        |
 |--------|-----------|------------------------------------------------------------------|
@@ -294,9 +320,35 @@ A busca é insensível a acentos. Para isso a aplicação precisa da função `u
 
 ---
 
-## Upload de avatares
+## Upload de arquivos (avatares, ícones de comunidade e fotos de álbum)
 
-Os avatares são armazenados **localmente** (por padrão em `uploads/avatars`, ignorado
-pelo Git) e servidos publicamente em `/uploads/avatars`. Ajuste o local e a URL pública
-pelas variáveis `AVATAR_STORAGE_DIR` e `AVATAR_PUBLIC_URL`. O tamanho máximo de arquivo
-é **10MB** (requisição até 12MB), configurável em `application.yml`.
+Todo upload de imagem do backend é armazenado **localmente em disco** e servido como
+arquivo estático. Hoje existem exatamente dois diretórios envolvidos — **não três**,
+porque o ícone de comunidade reaproveita o mesmo storage do avatar de usuário
+(`CommunityService` usa a mesma `AvatarStorageService`, só muda quem chama):
+
+- Avatares de usuário **e** ícones de comunidade: `uploads/avatars` → `/uploads/avatars`
+  (`AVATAR_STORAGE_DIR` / `AVATAR_PUBLIC_URL`).
+- Fotos de álbum: `uploads/albums/{albumId}/` → `/uploads/albums/{albumId}/...`
+  (`ALBUM_STORAGE_DIR` / `ALBUM_PUBLIC_URL`), uma subpasta por álbum.
+
+O tamanho máximo de arquivo é **10MB** (requisição até 12MB), configurável em
+`application.yml`.
+
+> ⚠️ **Railway (produção)**: o filesystem do serviço é efêmero — o conteúdo de
+> `uploads/` é perdido a cada deploy/restart. Para persistir avatares, ícones de
+> comunidade e fotos de álbum entre deploys, monte um
+> [Railway Volume](https://docs.railway.app/reference/volumes) único no serviço,
+> por exemplo em `/data/uploads`, e aponte **ambos** os pares de variáveis para
+> subpastas dele:
+> ```
+> AVATAR_STORAGE_DIR=/data/uploads/avatars
+> ALBUM_STORAGE_DIR=/data/uploads/albums
+> ```
+> Um volume que cubra só um dos dois deixa o outro se perdendo a cada deploy — se
+> um novo tipo de upload for adicionado no futuro, ele também precisa entrar nessa
+> lista e no mesmo volume. Sem o volume, os uploads somem no próximo deploy. Se o
+> volume de fotos crescer muito, considere migrar para um storage S3-compatible
+> (Cloudflare R2, Backblaze B2) numa etapa futura — isso troca a URL relativa por
+> uma URL absoluta do bucket e dispensa o rewrite `/uploads/:path*` do
+> `next.config.ts` para arquivos novos.
