@@ -2,11 +2,13 @@ package com.orkutclone.api.service;
 
 import com.orkutclone.api.dto.ChangePasswordRequest;
 import com.orkutclone.api.dto.DeleteAccountRequest;
+import com.orkutclone.api.dto.UpdateStatusMessageRequest;
 import com.orkutclone.api.dto.UpdateUserRequest;
 import com.orkutclone.api.dto.UserResponse;
 import com.orkutclone.api.model.User;
 import com.orkutclone.api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -63,6 +65,13 @@ public class UserService {
         return toResponse(userRepository.save(user));
     }
 
+    @CacheEvict(cacheNames = "profileOverview", allEntries = true)
+    public UserResponse updateStatusMessage(UpdateStatusMessageRequest request) {
+        User user = userRepository.findById(authenticatedUser().getId()).orElseThrow();
+        user.setStatusMessage(request.statusMessage());
+        return toResponse(userRepository.save(user));
+    }
+
     public void changePassword(ChangePasswordRequest request) {
         User user = userRepository.findById(authenticatedUser().getId()).orElseThrow();
 
@@ -94,6 +103,7 @@ public class UserService {
                 user.getName(),
                 user.getEmail(),
                 user.getBio(),
+                user.getStatusMessage(),
                 user.getProfilePicture(),
                 user.getProfilePicture(),
                 user.getBirthDate(),

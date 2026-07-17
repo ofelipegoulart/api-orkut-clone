@@ -11,6 +11,7 @@ public record UserResponse(
         String name,
         String email,
         @Schema(nullable = true) String bio,
+        @Schema(nullable = true) String statusMessage,
         @Schema(nullable = true) String profilePicture,
         @Schema(nullable = true) String avatar,
         @Schema(nullable = true) LocalDate birthDate,

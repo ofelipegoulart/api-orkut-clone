@@ -2,6 +2,7 @@ package com.orkutclone.api.controller;
 
 import com.orkutclone.api.dto.ChangePasswordRequest;
 import com.orkutclone.api.dto.DeleteAccountRequest;
+import com.orkutclone.api.dto.UpdateStatusMessageRequest;
 import com.orkutclone.api.dto.UpdateUserRequest;
 import com.orkutclone.api.dto.UserResponse;
 import com.orkutclone.api.service.UserService;
@@ -44,6 +45,15 @@ public class UserController {
     @ApiResponse(responseCode = "401", description = "Not authenticated")
     public ResponseEntity<UserResponse> updateCurrentUser(@RequestBody UpdateUserRequest request) {
         return ResponseEntity.ok(userService.updateUser(request));
+    }
+
+    @PutMapping("/me/status")
+    @Operation(summary = "Add or update the current user's status message")
+    @ApiResponse(responseCode = "200", description = "Status message updated")
+    @ApiResponse(responseCode = "400", description = "Validation failed")
+    @ApiResponse(responseCode = "401", description = "Not authenticated")
+    public ResponseEntity<UserResponse> updateStatusMessage(@Valid @RequestBody UpdateStatusMessageRequest request) {
+        return ResponseEntity.ok(userService.updateStatusMessage(request));
     }
 
     @PutMapping("/me/password")
