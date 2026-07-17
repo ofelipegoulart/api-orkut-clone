@@ -38,6 +38,9 @@ public class User implements UserDetails {
 
     private String bio;
 
+    @Column(name = "status_message", length = 140)
+    private String statusMessage;
+
     @Column(name = "profile_picture")
     private String profilePicture;
 
