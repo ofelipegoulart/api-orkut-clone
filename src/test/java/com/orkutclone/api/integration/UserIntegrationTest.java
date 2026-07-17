@@ -158,6 +158,92 @@ class UserIntegrationTest extends BaseIntegrationTest {
     }
 
     @Nested
+    @DisplayName("PUT /users/me/status — Frase de status")
+    class UpdateStatusMessage {
+
+        @Test
+        @DisplayName("200 — adiciona frase de status quando não havia nenhuma")
+        void shouldAddStatusMessage() throws Exception {
+            mockMvc.perform(put("/users/me/status")
+                            .header("Authorization", authHeader(user))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"statusMessage": "Curtindo o Orkut de novo!"}
+                                    """))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.statusMessage").value("Curtindo o Orkut de novo!"));
+
+            mockMvc.perform(get("/users/me")
+                            .header("Authorization", authHeader(user)))
+                    .andExpect(jsonPath("$.statusMessage").value("Curtindo o Orkut de novo!"));
+        }
+
+        @Test
+        @DisplayName("200 — edita frase de status existente")
+        void shouldEditStatusMessage() throws Exception {
+            mockMvc.perform(put("/users/me/status")
+                    .header("Authorization", authHeader(user))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                            {"statusMessage": "Status original"}
+                            """));
+
+            mockMvc.perform(put("/users/me/status")
+                            .header("Authorization", authHeader(user))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"statusMessage": "Status atualizado"}
+                                    """))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.statusMessage").value("Status atualizado"));
+        }
+
+        @Test
+        @DisplayName("200 — envio de null limpa a frase de status")
+        void shouldClearStatusMessage() throws Exception {
+            mockMvc.perform(put("/users/me/status")
+                    .header("Authorization", authHeader(user))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                            {"statusMessage": "Status original"}
+                            """));
+
+            mockMvc.perform(put("/users/me/status")
+                            .header("Authorization", authHeader(user))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"statusMessage": null}
+                                    """))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.statusMessage").isEmpty());
+        }
+
+        @Test
+        @DisplayName("400 — frase de status com mais de 140 caracteres é rejeitada")
+        void shouldRejectLongStatusMessage() throws Exception {
+            String longStatus = "a".repeat(141);
+            mockMvc.perform(put("/users/me/status")
+                            .header("Authorization", authHeader(user))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"statusMessage": "%s"}
+                                    """.formatted(longStatus)))
+                    .andExpect(status().isBadRequest());
+        }
+
+        @Test
+        @DisplayName("403 — sem token retorna forbidden")
+        void shouldRequireAuth() throws Exception {
+            mockMvc.perform(put("/users/me/status")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"statusMessage": "Status"}
+                                    """))
+                    .andExpect(status().isForbidden());
+        }
+    }
+
+    @Nested
     @DisplayName("GET /users/{id} — Ver perfil de outro usuário")
     class GetUserById {
 

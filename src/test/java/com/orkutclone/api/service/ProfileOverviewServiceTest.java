@@ -56,6 +56,7 @@ class ProfileOverviewServiceTest {
                 .name("Felipe Goulart")
                 .email("felipe@orkut.com")
                 .password("encoded")
+                .statusMessage("Curtindo o Orkut!")
                 .role(Role.USER)
                 .build();
 
@@ -127,6 +128,7 @@ class ProfileOverviewServiceTest {
 
         assertThat(result.user().id()).isEqualTo(currentUser.getId());
         assertThat(result.user().name()).isEqualTo("Felipe Goulart");
+        assertThat(result.user().statusMessage()).isEqualTo("Curtindo o Orkut!");
         assertThat(result.general()).isNotNull();
         assertThat(result.social()).isNotNull();
         assertThat(result.professional()).isNotNull();

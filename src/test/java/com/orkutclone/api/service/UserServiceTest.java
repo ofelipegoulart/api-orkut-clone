@@ -1,5 +1,6 @@
 package com.orkutclone.api.service;
 
+import com.orkutclone.api.dto.UpdateStatusMessageRequest;
 import com.orkutclone.api.dto.UpdateUserRequest;
 import com.orkutclone.api.dto.UserResponse;
 import com.orkutclone.api.model.User;
@@ -299,6 +300,47 @@ class UserServiceTest {
             UserResponse response = userService.updateUser(request);
 
             assertThat(response.bio()).isEqualTo("   ");
+        }
+    }
+
+    @Nested
+    @DisplayName("Frase de status - Adicionar ou editar")
+    class StatusMessageUpdate {
+
+        @Test
+        @DisplayName("Deve adicionar uma frase de status quando o usuário não tinha nenhuma")
+        void shouldAddStatusMessageWhenNoneExists() {
+            currentUser.setStatusMessage(null);
+            UpdateStatusMessageRequest request = new UpdateStatusMessageRequest("Curtindo o Orkut de novo!");
+            stubFindAndSave();
+
+            UserResponse response = userService.updateStatusMessage(request);
+
+            assertThat(response.statusMessage()).isEqualTo("Curtindo o Orkut de novo!");
+        }
+
+        @Test
+        @DisplayName("Deve editar a frase de status existente")
+        void shouldEditExistingStatusMessage() {
+            currentUser.setStatusMessage("Status antigo");
+            UpdateStatusMessageRequest request = new UpdateStatusMessageRequest("Status novo");
+            stubFindAndSave();
+
+            UserResponse response = userService.updateStatusMessage(request);
+
+            assertThat(response.statusMessage()).isEqualTo("Status novo");
+        }
+
+        @Test
+        @DisplayName("Deve limpar a frase de status ao enviar null")
+        void shouldClearStatusMessageWithNull() {
+            currentUser.setStatusMessage("Status antigo");
+            UpdateStatusMessageRequest request = new UpdateStatusMessageRequest(null);
+            stubFindAndSave();
+
+            UserResponse response = userService.updateStatusMessage(request);
+
+            assertThat(response.statusMessage()).isNull();
         }
     }
 
