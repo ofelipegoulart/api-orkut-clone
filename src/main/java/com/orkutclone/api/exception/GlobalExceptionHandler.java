@@ -1,5 +1,6 @@
 package com.orkutclone.api.exception;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -52,6 +53,14 @@ public class GlobalExceptionHandler {
         ProblemDetail detail = ProblemDetail.forStatus(HttpStatus.BAD_REQUEST);
         detail.setTitle("Bad Request");
         detail.setDetail(ex.getMessage());
+        return detail;
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ProblemDetail handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+        ProblemDetail detail = ProblemDetail.forStatus(HttpStatus.CONFLICT);
+        detail.setTitle("Conflict");
+        detail.setDetail("The request could not be completed because it conflicts with existing data.");
         return detail;
     }
 }

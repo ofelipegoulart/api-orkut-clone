@@ -1,11 +1,22 @@
 package com.orkutclone.api.integration;
 
 import com.orkutclone.api.dto.AuthResponse;
+import com.orkutclone.api.dto.CreateScrapRequest;
+import com.orkutclone.api.dto.ScrapResponse;
+import com.orkutclone.api.dto.community.CommunityDetailDTO;
+import com.orkutclone.api.dto.community.CreateCommunityRequest;
+import com.orkutclone.api.dto.profile.CreateProfileRatingRequest;
+import com.orkutclone.api.dto.profile.CreateTestimonialRequest;
+import com.orkutclone.api.dto.profile.FriendRequestDTO;
+import com.orkutclone.api.model.enums.CommunityCategory;
+import com.orkutclone.api.model.enums.CommunityContentPrivacy;
+import com.orkutclone.api.model.enums.CommunityType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MvcResult;
 
 import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -272,6 +283,142 @@ class UserIntegrationTest extends BaseIntegrationTest {
         @DisplayName("403 — sem token retorna forbidden")
         void shouldRequireAuth() throws Exception {
             mockMvc.perform(get("/users/{id}", user.userId()))
+                    .andExpect(status().isForbidden());
+        }
+    }
+
+    @Nested
+    @DisplayName("DELETE /users/me — Excluir conta")
+    class DeleteAccount {
+
+        @Test
+        @DisplayName("204 — conta com dados relacionados (scraps, amigos, comunidade, testemunho, avaliação) é excluída sem violar FKs, some da busca e comunidade sobrevive sem dono")
+        void shouldDeleteAccountWithRelatedDataAndDisappearFromSearch() throws Exception {
+            AuthResponse other = registerUniqueUser();
+            AuthResponse third = registerUniqueUser();
+
+            // Comunidade criada e possuída por `user`; `other` entra como membro.
+            var communityRequest = new CreateCommunityRequest(
+                    "Comunidade do Felipe " + System.nanoTime(),
+                    CommunityCategory.OTHERS, CommunityType.PUBLIC, CommunityContentPrivacy.OPEN_TO_NON_MEMBERS,
+                    null, null, null, null, null);
+            MvcResult communityResult = mockMvc.perform(post("/api/community")
+                            .header("Authorization", authHeader(user))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(communityRequest)))
+                    .andExpect(status().isCreated())
+                    .andReturn();
+            CommunityDetailDTO community = objectMapper.readValue(
+                    communityResult.getResponse().getContentAsString(), CommunityDetailDTO.class);
+
+            mockMvc.perform(post("/api/community/{id}/join", community.id())
+                            .header("Authorization", authHeader(other)))
+                    .andExpect(status().isOk());
+
+            // `user` escreve no mural de `other`; `third` responde por baixo, no mesmo mural — a
+            // resposta deve sobreviver com parentId nulo depois que o scrap de `user` for apagado.
+            MvcResult rootScrapResult = mockMvc.perform(post("/scraps")
+                            .header("Authorization", authHeader(user))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    new CreateScrapRequest("Oi!", other.userId(), false, null))))
+                    .andExpect(status().isCreated())
+                    .andReturn();
+            ScrapResponse rootScrap = objectMapper.readValue(
+                    rootScrapResult.getResponse().getContentAsString(), ScrapResponse.class);
+
+            MvcResult replyScrapResult = mockMvc.perform(post("/scraps")
+                            .header("Authorization", authHeader(third))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    new CreateScrapRequest("Oi também!", other.userId(), false, rootScrap.id()))))
+                    .andExpect(status().isCreated())
+                    .andReturn();
+            ScrapResponse replyScrap = objectMapper.readValue(
+                    replyScrapResult.getResponse().getContentAsString(), ScrapResponse.class);
+
+            // Amizade entre `user` e `other` (gera profile_statistics para ambos).
+            MvcResult friendRequestResult = mockMvc.perform(post("/api/profile/friends/{friendUserId}", user.userId())
+                            .header("Authorization", authHeader(other)))
+                    .andExpect(status().isCreated())
+                    .andReturn();
+            FriendRequestDTO friendRequest = objectMapper.readValue(
+                    friendRequestResult.getResponse().getContentAsString(), FriendRequestDTO.class);
+            mockMvc.perform(post("/api/profile/friends/requests/{requestId}/accept", friendRequest.requestId())
+                            .header("Authorization", authHeader(user)))
+                    .andExpect(status().isNoContent());
+
+            // Testemunho e avaliação recebidos por `user`.
+            mockMvc.perform(post("/api/profile/testimonials/{targetUserId}", user.userId())
+                            .header("Authorization", authHeader(other))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(new CreateTestimonialRequest("Ótima pessoa!"))))
+                    .andExpect(status().isCreated());
+            mockMvc.perform(post("/api/profile/ratings/{targetUserId}", user.userId())
+                            .header("Authorization", authHeader(other))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(new CreateProfileRatingRequest(5, 5, 5))))
+                    .andExpect(status().isNoContent());
+
+            // A exclusão em si: antes da correção, isso estourava violação de FK e a conta nunca
+            // saía do banco (por isso continuava aparecendo na busca).
+            mockMvc.perform(delete("/users/me")
+                            .header("Authorization", authHeader(user))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"password": "senha123", "confirm": true}
+                                    """))
+                    .andExpect(status().isNoContent());
+
+            mockMvc.perform(get("/users/{id}", user.userId())
+                            .header("Authorization", authHeader(other)))
+                    .andExpect(status().isNotFound());
+
+            mockMvc.perform(get("/search")
+                            .param("q", user.name())
+                            .header("Authorization", authHeader(other)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.results[?(@.email == '" + user.email() + "')]").doesNotExist());
+
+            // A comunidade sobrevive sem dono, não é apagada em cascata.
+            mockMvc.perform(get("/search")
+                            .param("q", community.name())
+                            .header("Authorization", authHeader(other)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.results[?(@.name == '" + community.name() + "')].resultType")
+                            .value(hasItem("COMMUNITY")));
+
+            // A resposta de `other` ao scrap apagado de `user` sobrevive, sem o parent pendurado.
+            mockMvc.perform(get("/scraps/{id}", replyScrap.id())
+                            .header("Authorization", authHeader(other)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.parentId").isEmpty());
+        }
+
+        @Test
+        @DisplayName("401 — senha incorreta não exclui a conta")
+        void shouldRejectWrongPassword() throws Exception {
+            mockMvc.perform(delete("/users/me")
+                            .header("Authorization", authHeader(user))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"password": "senhaErrada", "confirm": true}
+                                    """))
+                    .andExpect(status().isUnauthorized());
+
+            mockMvc.perform(get("/users/me")
+                            .header("Authorization", authHeader(user)))
+                    .andExpect(status().isOk());
+        }
+
+        @Test
+        @DisplayName("403 — sem token retorna forbidden")
+        void shouldRequireAuth() throws Exception {
+            mockMvc.perform(delete("/users/me")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"password": "senha123", "confirm": true}
+                                    """))
                     .andExpect(status().isForbidden());
         }
     }
