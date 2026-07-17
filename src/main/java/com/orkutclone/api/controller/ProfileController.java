@@ -190,8 +190,8 @@ public class ProfileController {
     @Operation(summary = "Get general profile")
     @ApiResponse(responseCode = "200", description = "General profile retrieved")
     @ApiResponse(responseCode = "401", description = "Not authenticated")
-    public ResponseEntity<GeneralProfileDTO> getGeneral() {
-        return ResponseEntity.ok(profileService.getGeneral());
+    public ResponseEntity<GeneralProfileDTO> getGeneral(@RequestParam(required = false) UUID userId) {
+        return ResponseEntity.ok(profileService.getGeneral(userId));
     }
 
     @PatchMapping("/general")
@@ -206,8 +206,8 @@ public class ProfileController {
     @Operation(summary = "Get social profile")
     @ApiResponse(responseCode = "200", description = "Social profile retrieved")
     @ApiResponse(responseCode = "401", description = "Not authenticated")
-    public ResponseEntity<SocialProfileDTO> getSocial() {
-        return ResponseEntity.ok(profileService.getSocial());
+    public ResponseEntity<SocialProfileDTO> getSocial(@RequestParam(required = false) UUID userId) {
+        return ResponseEntity.ok(profileService.getSocial(userId));
     }
 
     @PatchMapping("/social")
@@ -222,8 +222,8 @@ public class ProfileController {
     @Operation(summary = "Get contact profile")
     @ApiResponse(responseCode = "200", description = "Contact profile retrieved")
     @ApiResponse(responseCode = "401", description = "Not authenticated")
-    public ResponseEntity<ContactProfileDTO> getContact() {
-        return ResponseEntity.ok(profileService.getContact());
+    public ResponseEntity<ContactProfileDTO> getContact(@RequestParam(required = false) UUID userId) {
+        return ResponseEntity.ok(profileService.getContact(userId));
     }
 
     @PatchMapping("/contact")
@@ -238,8 +238,8 @@ public class ProfileController {
     @Operation(summary = "Get professional profile")
     @ApiResponse(responseCode = "200", description = "Professional profile retrieved")
     @ApiResponse(responseCode = "401", description = "Not authenticated")
-    public ResponseEntity<ProfessionalProfileDTO> getProfessional() {
-        return ResponseEntity.ok(profileService.getProfessional());
+    public ResponseEntity<ProfessionalProfileDTO> getProfessional(@RequestParam(required = false) UUID userId) {
+        return ResponseEntity.ok(profileService.getProfessional(userId));
     }
 
     @PatchMapping("/professional")
@@ -254,8 +254,8 @@ public class ProfileController {
     @Operation(summary = "Get personal profile")
     @ApiResponse(responseCode = "200", description = "Personal profile retrieved")
     @ApiResponse(responseCode = "401", description = "Not authenticated")
-    public ResponseEntity<PersonalProfileDTO> getPersonal() {
-        return ResponseEntity.ok(profileService.getPersonal());
+    public ResponseEntity<PersonalProfileDTO> getPersonal(@RequestParam(required = false) UUID userId) {
+        return ResponseEntity.ok(profileService.getPersonal(userId));
     }
 
     @PatchMapping("/personal")

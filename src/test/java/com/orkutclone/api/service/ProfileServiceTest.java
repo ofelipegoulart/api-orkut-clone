@@ -108,7 +108,7 @@ class ProfileServiceTest {
             UserProfileGeneral newGeneral = createGeneralWithDefaults();
             when(generalRepository.save(any(UserProfileGeneral.class))).thenReturn(newGeneral);
 
-            GeneralProfileDTO result = profileService.getGeneral();
+            GeneralProfileDTO result = profileService.getGeneral(null);
 
             verify(generalRepository).save(any(UserProfileGeneral.class));
             assertThat(result).isNotNull();
@@ -126,7 +126,7 @@ class ProfileServiceTest {
             newGeneral.setInterestedIn(new ArrayList<>());
             when(generalRepository.save(any(UserProfileGeneral.class))).thenReturn(newGeneral);
 
-            GeneralProfileDTO result = profileService.getGeneral();
+            GeneralProfileDTO result = profileService.getGeneral(null);
 
             verify(profileRepository).save(any(UserProfile.class));
             verify(generalRepository).save(any(UserProfileGeneral.class));
@@ -532,7 +532,7 @@ class ProfileServiceTest {
             UserProfileSocial newSocial = createSocialWithDefaults();
             when(socialRepository.save(any(UserProfileSocial.class))).thenReturn(newSocial);
 
-            SocialProfileDTO result = profileService.getSocial();
+            SocialProfileDTO result = profileService.getSocial(null);
 
             verify(socialRepository).save(any(UserProfileSocial.class));
             assertThat(result).isNotNull();
@@ -813,7 +813,7 @@ class ProfileServiceTest {
             newProf.setProfile(coreProfile);
             when(professionalRepository.save(any(UserProfileProfessional.class))).thenReturn(newProf);
 
-            ProfessionalProfileDTO result = profileService.getProfessional();
+            ProfessionalProfileDTO result = profileService.getProfessional(null);
 
             verify(professionalRepository).save(any(UserProfileProfessional.class));
             assertThat(result).isNotNull();
@@ -894,7 +894,7 @@ class ProfileServiceTest {
             UserProfilePersonal newPersonal = createPersonalWithDefaults();
             when(personalRepository.save(any(UserProfilePersonal.class))).thenReturn(newPersonal);
 
-            PersonalProfileDTO result = profileService.getPersonal();
+            PersonalProfileDTO result = profileService.getPersonal(null);
 
             verify(personalRepository).save(any(UserProfilePersonal.class));
             assertThat(result).isNotNull();

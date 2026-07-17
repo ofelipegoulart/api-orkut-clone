@@ -16,6 +16,7 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -35,8 +36,8 @@ public class ProfileService {
     // ── General ──
 
     @Transactional(readOnly = true)
-    public GeneralProfileDTO getGeneral() {
-        return toGeneralDTO(getOrCreateGeneral());
+    public GeneralProfileDTO getGeneral(UUID userId) {
+        return toGeneralDTO(getOrCreateGeneral(resolveTargetUser(userId)));
     }
 
     @Transactional
@@ -90,8 +91,8 @@ public class ProfileService {
     // ── Social ──
 
     @Transactional(readOnly = true)
-    public SocialProfileDTO getSocial() {
-        return toSocialDTO(getOrCreateSocial());
+    public SocialProfileDTO getSocial(UUID userId) {
+        return toSocialDTO(getOrCreateSocial(resolveTargetUser(userId)));
     }
 
     @Transactional
@@ -141,8 +142,8 @@ public class ProfileService {
     // ── Contact ──
 
     @Transactional(readOnly = true)
-    public ContactProfileDTO getContact() {
-        return toContactDTO(getOrCreateContact());
+    public ContactProfileDTO getContact(UUID userId) {
+        return toContactDTO(getOrCreateContact(resolveTargetUser(userId)));
     }
 
     @Transactional
@@ -179,8 +180,8 @@ public class ProfileService {
     // ── Professional ──
 
     @Transactional(readOnly = true)
-    public ProfessionalProfileDTO getProfessional() {
-        return toProfessionalDTO(getOrCreateProfessional());
+    public ProfessionalProfileDTO getProfessional(UUID userId) {
+        return toProfessionalDTO(getOrCreateProfessional(resolveTargetUser(userId)));
     }
 
     @Transactional
@@ -210,8 +211,8 @@ public class ProfileService {
     // ── Personal ──
 
     @Transactional(readOnly = true)
-    public PersonalProfileDTO getPersonal() {
-        return toPersonalDTO(getOrCreatePersonal());
+    public PersonalProfileDTO getPersonal(UUID userId) {
+        return toPersonalDTO(getOrCreatePersonal(resolveTargetUser(userId)));
     }
 
     @Transactional
@@ -279,7 +280,10 @@ public class ProfileService {
     // ── Get-or-create helpers ──
 
     private UserProfile getOrCreateCoreProfile() {
-        User user = authenticatedUser();
+        return getOrCreateCoreProfile(authenticatedUser());
+    }
+
+    private UserProfile getOrCreateCoreProfile(User user) {
         return profileRepository.findByUserId(user.getId())
                 .orElseGet(() -> {
                     UserProfile profile = new UserProfile();
@@ -288,53 +292,110 @@ public class ProfileService {
                 });
     }
 
+    private boolean isSelfView(User target) {
+        return target.getId().equals(authenticatedUser().getId());
+    }
+
+    /**
+     * Resolves the target user for read endpoints: the given userId if present, otherwise the authenticated user.
+     * Reads for other users never auto-create/persist a missing section, unlike self reads (which get-or-create).
+     */
+    private User resolveTargetUser(UUID userId) {
+        User viewer = authenticatedUser();
+        if (userId == null || userId.equals(viewer.getId())) {
+            return viewer;
+        }
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+    }
+
     private UserProfileGeneral getOrCreateGeneral() {
-        UserProfile core = getOrCreateCoreProfile();
+        return getOrCreateGeneral(authenticatedUser());
+    }
+
+    private UserProfileGeneral getOrCreateGeneral(User target) {
+        boolean self = isSelfView(target);
+        UserProfile core = self ? getOrCreateCoreProfile(target) : profileRepository.findByUserId(target.getId()).orElse(null);
+        if (core == null) {
+            return new UserProfileGeneral();
+        }
         return generalRepository.findByProfileId(core.getId())
                 .orElseGet(() -> {
                     UserProfileGeneral g = new UserProfileGeneral();
                     g.setProfile(core);
-                    return generalRepository.save(g);
+                    return self ? generalRepository.save(g) : g;
                 });
     }
 
     private UserProfileSocial getOrCreateSocial() {
-        UserProfile core = getOrCreateCoreProfile();
+        return getOrCreateSocial(authenticatedUser());
+    }
+
+    private UserProfileSocial getOrCreateSocial(User target) {
+        boolean self = isSelfView(target);
+        UserProfile core = self ? getOrCreateCoreProfile(target) : profileRepository.findByUserId(target.getId()).orElse(null);
+        if (core == null) {
+            return new UserProfileSocial();
+        }
         return socialRepository.findByProfileId(core.getId())
                 .orElseGet(() -> {
                     UserProfileSocial s = new UserProfileSocial();
                     s.setProfile(core);
-                    return socialRepository.save(s);
+                    return self ? socialRepository.save(s) : s;
                 });
     }
 
     private UserProfileContact getOrCreateContact() {
-        UserProfile core = getOrCreateCoreProfile();
+        return getOrCreateContact(authenticatedUser());
+    }
+
+    private UserProfileContact getOrCreateContact(User target) {
+        boolean self = isSelfView(target);
+        UserProfile core = self ? getOrCreateCoreProfile(target) : profileRepository.findByUserId(target.getId()).orElse(null);
+        if (core == null) {
+            return new UserProfileContact();
+        }
         return contactRepository.findByProfileId(core.getId())
                 .orElseGet(() -> {
                     UserProfileContact c = new UserProfileContact();
                     c.setProfile(core);
-                    return contactRepository.save(c);
+                    return self ? contactRepository.save(c) : c;
                 });
     }
 
     private UserProfileProfessional getOrCreateProfessional() {
-        UserProfile core = getOrCreateCoreProfile();
+        return getOrCreateProfessional(authenticatedUser());
+    }
+
+    private UserProfileProfessional getOrCreateProfessional(User target) {
+        boolean self = isSelfView(target);
+        UserProfile core = self ? getOrCreateCoreProfile(target) : profileRepository.findByUserId(target.getId()).orElse(null);
+        if (core == null) {
+            return new UserProfileProfessional();
+        }
         return professionalRepository.findByProfileId(core.getId())
                 .orElseGet(() -> {
                     UserProfileProfessional p = new UserProfileProfessional();
                     p.setProfile(core);
-                    return professionalRepository.save(p);
+                    return self ? professionalRepository.save(p) : p;
                 });
     }
 
     private UserProfilePersonal getOrCreatePersonal() {
-        UserProfile core = getOrCreateCoreProfile();
+        return getOrCreatePersonal(authenticatedUser());
+    }
+
+    private UserProfilePersonal getOrCreatePersonal(User target) {
+        boolean self = isSelfView(target);
+        UserProfile core = self ? getOrCreateCoreProfile(target) : profileRepository.findByUserId(target.getId()).orElse(null);
+        if (core == null) {
+            return new UserProfilePersonal();
+        }
         return personalRepository.findByProfileId(core.getId())
                 .orElseGet(() -> {
                     UserProfilePersonal p = new UserProfilePersonal();
                     p.setProfile(core);
-                    return personalRepository.save(p);
+                    return self ? personalRepository.save(p) : p;
                 });
     }
 
