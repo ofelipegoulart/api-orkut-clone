@@ -33,6 +33,7 @@ public class CommunityDashboardService {
     private final CommunityRepository communityRepository;
     private final CommunityMembershipRepository communityMembershipRepository;
     private final CommunityTopicRepository communityTopicRepository;
+    private final PollService pollService;
 
     @Transactional(readOnly = true)
     public CommunityDashboardDTO getDashboard(UUID communityId) {
@@ -59,8 +60,7 @@ public class CommunityDashboardService {
         return new CommunityDashboardDTO(
                 toCommunityInfo(community, membersCount, resolveViewerRelation(community, user)),
                 topics,
-                // TODO: populate once the poll subsystem exists.
-                null,
+                pollService.getActivePollForDashboard(communityId),
                 featuredMembers
         );
     }
