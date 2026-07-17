@@ -23,7 +23,8 @@ public record ProfileOverviewDTO(
     public record UserSummary(
             UUID id,
             String name,
-            @Schema(nullable = true) String avatar
+            @Schema(nullable = true) String avatar,
+            @Schema(nullable = true) String statusMessage
     ) {}
 
     public record FriendCardDTO(

@@ -75,7 +75,7 @@ public class ProfileOverviewService {
             selfView);
 
         return new ProfileOverviewDTO(
-                new ProfileOverviewDTO.UserSummary(target.getId(), target.getName(), target.getProfilePicture()),
+                new ProfileOverviewDTO.UserSummary(target.getId(), target.getName(), target.getProfilePicture(), target.getStatusMessage()),
                 general == null ? null : toGeneralDTO(general),
                 social == null ? null : toSocialDTO(social),
                 professional == null ? null : toProfessionalDTO(professional),
