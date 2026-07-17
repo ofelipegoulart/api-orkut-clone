@@ -1,0 +1,11 @@
+CREATE TABLE users (
+    id UUID PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    bio VARCHAR(255),
+    profile_picture VARCHAR(255),
+    birth_date DATE,
+    role VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
