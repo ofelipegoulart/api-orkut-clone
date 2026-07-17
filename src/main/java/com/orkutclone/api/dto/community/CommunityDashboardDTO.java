@@ -54,7 +54,11 @@ public record CommunityDashboardDTO(
     public record ActivePollDTO(
             UUID id,
             String question,
+            @Schema(nullable = true) String imageUrl,
             @Schema(nullable = true) String creator,
+            @Schema(nullable = true) OffsetDateTime closesAt,
+            boolean closed,
+            boolean multipleChoice,
             List<PollOptionDTO> voteOptions
     ) {}
 
