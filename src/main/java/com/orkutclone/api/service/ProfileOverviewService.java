@@ -211,7 +211,10 @@ public class ProfileOverviewService {
                         projection.getName(),
                         projection.getAvatar(),
                         projection.getFriendsCount() == null ? 0L : projection.getFriendsCount(),
-                        viewerId == null ? 0L : profileFriendRepository.countMutualFriends(viewerId, projection.getId())))
+                        viewerId == null ? 0L : profileFriendRepository.countMutualFriends(viewerId, projection.getId()),
+                        projection.getGender(),
+                        projection.getCity(),
+                        projection.getRelationshipStatus()))
                 .toList();
     }
 

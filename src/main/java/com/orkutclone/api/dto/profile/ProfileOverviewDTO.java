@@ -32,7 +32,10 @@ public record ProfileOverviewDTO(
             String name,
             @Schema(nullable = true) String avatar,
             long friendsCount,
-            long mutualFriendsCount
+            long mutualFriendsCount,
+            @Schema(nullable = true) String gender,
+            @Schema(nullable = true) String city,
+            @Schema(nullable = true) String relationshipStatus
     ) {}
 
     public record CommunityCardDTO(

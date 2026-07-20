@@ -34,8 +34,13 @@ public interface ProfileFriendRepository extends JpaRepository<ProfileFriend, UU
             SELECT f.friend.id as id,
                    f.friend.name as name,
                    f.friend.profilePicture as avatar,
-                   (SELECT COUNT(ff) FROM ProfileFriend ff WHERE ff.user.id = f.friend.id) as friendsCount
+                   (SELECT COUNT(ff) FROM ProfileFriend ff WHERE ff.user.id = f.friend.id) as friendsCount,
+                   g.gender as gender,
+                   g.city as city,
+                   g.relationshipStatus as relationshipStatus
             FROM ProfileFriend f
+            LEFT JOIN UserProfile p ON p.user.id = f.friend.id
+            LEFT JOIN UserProfileGeneral g ON g.profile.id = p.id
             WHERE f.user.id = :userId
             ORDER BY f.createdAt DESC
             """)

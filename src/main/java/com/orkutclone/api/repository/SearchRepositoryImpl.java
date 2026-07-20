@@ -25,6 +25,10 @@ public class SearchRepositoryImpl implements SearchRepositoryCustom {
             "coalesce(u.name,'') || ' ' || coalesce(u.email,'') || ' ' || coalesce(u.bio,'')";
     private static final String COMMUNITY_HAYSTACK =
             "coalesce(c.name,'') || ' ' || coalesce(c.description,'')";
+    private static final String TOPIC_HAYSTACK = "t.title";
+    // Correlacionada ao "t" do FROM community_topics t da subquery EXISTS.
+    private static final String TOPIC_MESSAGE_HAYSTACK =
+            "coalesce(tm.subject,'') || ' ' || coalesce(tm.message,'')";
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -34,9 +38,10 @@ public class SearchRepositoryImpl implements SearchRepositoryCustom {
                                  String fullTerm,
                                  boolean includeUsers,
                                  boolean includeCommunities,
+                                 boolean includeTopics,
                                  Pageable pageable) {
 
-        if ((!includeUsers && !includeCommunities) || tokens.isEmpty()) {
+        if ((!includeUsers && !includeCommunities && !includeTopics) || tokens.isEmpty()) {
             return new PageImpl<>(List.of(), pageable, 0);
         }
 
@@ -74,6 +79,28 @@ public class SearchRepositoryImpl implements SearchRepositoryCustom {
                     FROM communities c
                     WHERE %s
                     """.formatted(tokenPredicate(COMMUNITY_HAYSTACK, tokens.size())));
+        }
+        if (includeTopics) {
+            unionBranches.add("""
+                    SELECT 'TOPIC' AS result_type,
+                           t.id AS id,
+                           t.title AS name,
+                           NULL AS avatar_url,
+                           NULL AS email,
+                           t.title AS about_me,
+                           CASE
+                               WHEN unaccent(lower(t.title)) = unaccent(lower(:fullTerm)) THEN 0
+                               WHEN unaccent(lower(t.title)) LIKE unaccent(lower(:fullPrefix)) THEN 1
+                               ELSE 2
+                           END AS relevance
+                    FROM community_topics t
+                    WHERE %s OR EXISTS (
+                        SELECT 1 FROM topic_messages tm
+                        WHERE tm.topic_id = t.id AND %s
+                    )
+                    """.formatted(
+                            tokenPredicate(TOPIC_HAYSTACK, tokens.size()),
+                            tokenPredicate(TOPIC_MESSAGE_HAYSTACK, tokens.size())));
         }
 
         String union = String.join(" UNION ALL ", unionBranches);

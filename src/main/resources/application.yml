@@ -16,6 +16,7 @@ spring:
   flyway:
     enabled: true
     baseline-on-migrate: true
+    out-of-order: true
   servlet:
     multipart:
       max-file-size: 10MB

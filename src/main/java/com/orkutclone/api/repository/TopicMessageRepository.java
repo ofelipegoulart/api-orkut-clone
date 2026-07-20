@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface TopicMessageRepository extends JpaRepository<TopicMessage, UUID> {
@@ -23,4 +25,11 @@ public interface TopicMessageRepository extends JpaRepository<TopicMessage, UUID
             """,
             countQuery = "SELECT COUNT(m) FROM TopicMessage m WHERE m.topic.id = :topicId")
     Page<TopicMessage> findPageByTopicId(@Param("topicId") UUID topicId, Pageable pageable);
+
+    long countByTopicId(UUID topicId);
+
+    Optional<TopicMessage> findFirstByTopicIdOrderByCreatedAtDesc(UUID topicId);
+
+    /** All of a topic's messages, oldest first — used to locate the one matching a search term. */
+    List<TopicMessage> findByTopicIdOrderByCreatedAtAsc(UUID topicId);
 }

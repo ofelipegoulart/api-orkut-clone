@@ -7,4 +7,7 @@ public interface FriendOverviewProjection {
     String getName();
     String getAvatar();
     Long getFriendsCount();
+    String getGender();
+    String getCity();
+    String getRelationshipStatus();
 }
